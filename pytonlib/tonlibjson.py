@@ -49,8 +49,8 @@ class TonLib:
         tonlib_json_client_create.argtypes = []
         try:
             self._client = tonlib_json_client_create()
-        except Exception:
-            asyncio.ensure_future(self.restart(), loop=loop)
+        except Exception as ee:
+            raise RuntimeError(f"Failed to create tonlibjson client: {ee}")
 
         tonlib_json_client_receive = tonlib.tonlib_client_json_receive
         tonlib_json_client_receive.restype = c_char_p
@@ -75,90 +75,84 @@ class TonLib:
         self.futures = {}
         self.loop = loop
         self.ls_index = ls_index
-        self.read_results_task = asyncio.ensure_future(self.read_results(), loop=self.loop)
-        self.del_expired_futures_task = asyncio.ensure_future(self.del_expired_futures_loop(), loop=self.loop)
-        self.shutdown_state = False  # False, "started", "finished"
-        self.request_num = 0
+        self._state = None  # None, "started", "finished", "crashed"
         self.verbose = verbose
 
-        self.max_requests = None
-        self.max_restarts = None
-
+        # creating tasks
+        self.read_results_task = asyncio.ensure_future(self.read_results(), loop=self.loop)
+        
     def __del__(self):
         try:
+            self.read_results_task.cancel()
+            self.cancel_futures(cancel_all=True)
+
             self._tonlib_json_client_destroy(self._client)
-        except Exception:
-            logger.error(f'Traceback: {traceback.format_exc()}')
-            asyncio.ensure_future(self.restart(), loop=self.loop)
+        except Exception as ee:
+            logger.error(f"Exception in tonlibjson.__del__: {traceback.format_exc()}")
+            raise RuntimeError(f'Error in tonlibjson.__del__: {ee}')
 
     def send(self, query):
         query = json.dumps(query).encode('utf-8')
         try:
             self._tonlib_json_client_send(self._client, query)
-        except Exception:
-            asyncio.ensure_future(self.restart(), loop=self.loop)
-
-    async def restart(self):
-        if not self.shutdown_state:
-            self.shutdown_state = "started"
-            asyncio.ensure_future(self.restart_hook(self.max_restarts), loop=self.loop)
+        except Exception as ee:
+            logger.error(f"Exception in tonlibjson.send: {traceback.format_exc()}")
+            raise RuntimeError(f'Error in tonlibjson.send: {ee}')
 
     def receive(self, timeout=10):
         result = None
         try:
             result = self._tonlib_json_client_receive(self._client, timeout)  # time.sleep # asyncio.sleep
-        except Exception:
-            asyncio.ensure_future(self.restart(), loop=self.loop)
+        except Exception as ee:
+            logger.error(f"Exception in tonlibjson.receive: {traceback.format_exc()}")
+            raise RuntimeError(f'Error in tonlibjson.receive: {ee}')
         if result:
             result = json.loads(result.decode('utf-8'))
         return result
 
-    def set_restart_hook(self, hook, max_requests=None, max_restarts=None):
-        self.max_requests = max_requests
-        self.max_restarts = max_restarts
-        self.restart_hook = hook
-
     def execute(self, query, timeout=10):
-        query_type = query.get('@type', '?')
-        # logger.debug(f'Tonlib #{self.ls_index:03d}. Executing query with timeout={timeout}: {query_type}')
-        extra_id = "%s:%s:%s" % (time.time()+timeout, self.ls_index, random.random())
+        extra_id = "%s:%s:%s" % (time.time() + timeout, self.ls_index, random.random())
         query["@extra"] = extra_id
-        
-        self.loop.run_in_executor(None, lambda: self.send(query))
         
         future_result = self.loop.create_future()
         self.futures[extra_id] = future_result
 
-        self.request_num += 1
-
-        if self.max_requests and self.max_requests < self.request_num:
-            asyncio.ensure_future(self.restart(), loop=self.loop)
-
+        self.loop.run_in_executor(None, lambda: self.send(query))
         return future_result
-
+    
     @property
-    def _is_finishing(self):
-        return (not len(self.futures)) and (self.shutdown_state in ["started", "finished"])
+    def _is_working(self):
+        return self._state not in ('crashed', 'stuck')
 
+    def cancel_futures(self, cancel_all=False):
+        now = time.time()
+        to_del = []
+        for i in self.futures:
+            if float(i.split(":")[0]) <= now or cancel_all:
+                to_del.append(i)
+        logger.debug(f'Pruning {len(to_del)} tasks')
+        for i in to_del:
+            self.futures[i].cancel()
+            self.futures.pop(i)
+
+    # tasks
     async def read_results(self):
-        timeout = 3
+        timeout = 1
         delta = 5
         receive_func = functools.partial(self.receive, timeout)
 
-        while not self._is_finishing:
+        while self._is_working:
+            # return reading result
             result = None
             try:
                 result = await asyncio.wait_for(self.loop.run_in_executor(None, receive_func), timeout=timeout + delta)
             except asyncio.TimeoutError:
-                logger.critical(f"Tonlib #{self.ls_index:03d} Stuck!")
-                asyncio.ensure_future(self.restart(), loop=self.loop)
-                await asyncio.sleep(2)
+                logger.critical(f"Tonlib #{self.ls_index:03d} stuck (timeout error)")
+                self._state = "stuck"
             except:
                 logger.critical(f"Tonlib #{self.ls_index:03d} crashed: {traceback.format_exc()}")
-                asyncio.ensure_future(self.restart(), loop=self.loop)
-                await asyncio.sleep(2)
+                self._state = "crashed"
             
-            # return result
             if result and isinstance(result, dict) and ("@extra" in result) and (result["@extra"] in self.futures):
                 try:
                     if not self.futures[result["@extra"]].done():
@@ -166,19 +160,6 @@ class TonLib:
                         self.futures.pop(result["@extra"])
                 except Exception as e:
                     logger.error(f'Tonlib #{self.ls_index:03d} receiving result exception: {e}')
-        self.shutdown_state = "finished"
-
-    async def del_expired_futures_loop(self):
-        while not self._is_finishing:
-            await self.cancel_futures()
-            await asyncio.sleep(1)
-
-    async def cancel_futures(self, cancel_all=False):
-        now = time.time()
-        to_del = []
-        for i in self.futures:
-            if float(i.split(":")[0]) <= now or cancel_all:
-                to_del.append(i)
-        for i in to_del:
-            i.cancel()
-            self.futures.pop(i)
+            
+            # pruning tasks
+            self.cancel_futures()

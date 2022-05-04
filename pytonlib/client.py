@@ -45,17 +45,7 @@ class TonlibClient:
         local['liteservers'] = [local['liteservers'][self.ls_index]]
         return local
 
-    async def reconnect(self, max_restarts=None):
-        if max_restarts is not None:
-            max_restarts -= 1
-        if max_restarts is None or max_restarts >= 0:
-            await self.init(max_restarts)
-            logger.info(f'Client #{self.ls_index:03d} reconnected (max_restarts: {max_restarts})')
-        else:
-            logger.info('Client #{self.ls_index:03d} has no reconnect attempts left')
-            self.tonlib_wrapper = None
-
-    async def init(self, max_restarts=None):
+    async def init(self):
         """
         TL Spec
             init options:options = options.Info;
@@ -101,8 +91,6 @@ class TonlibClient:
         
         # set confog
         await self.tonlib_wrapper.execute(request)
-        self.tonlib_wrapper.set_restart_hook(hook=self.reconnect, max_requests=1024, max_restarts=max_restarts)
-
         logger.info(F"TonLib #{self.ls_index:03d} inited successfully")
 
     async def set_verbosity_level(self, level):
