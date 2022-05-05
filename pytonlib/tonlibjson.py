@@ -22,6 +22,8 @@ def get_tonlib_path():
         lib_name = f'libtonlibjson.{machine}.so'
     elif arch_name == 'darwin':
         lib_name = f'libtonlibjson.{machine}.dylib'
+    elif arch_name == 'windows':
+        lib_name = f'tonlibjson.{machine}.dll'
     else:
         raise RuntimeError(f"Platform '{arch_name}({machine})' is not compatible yet")
     return pkg_resources.resource_filename('pytonlib', f'distlib/{arch_name}/{lib_name}')
