@@ -10,7 +10,11 @@ with the following restrictions:
 ## Installation
 
 ### From PyPi
-Currently, the library works with Ubuntu OS. To install package run
+Currently, the library works for Windows, Mac and Linux on Intel CPUs. 
+#### Windows
+* Install MSVC
+
+To install package run
 ```bash
 pip install pytonlib
 ```
