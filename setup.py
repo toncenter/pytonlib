@@ -10,7 +10,7 @@ setup(
     author='K-Dimentional Tree',
     author_email='kdimentionaltree@gmail.com',
     name='pytonlib',
-    version='0.0.3',
+    version='0.0.4',
     packages=find_packages('.', exclude=['tests']),
     install_requires=[
         'crc16==0.1.1',
