@@ -10,25 +10,20 @@ with the following restrictions:
 ## Installation
 
 ### From PyPi
-Currently, the library works for Windows, Mac and Linux on Intel CPUs. 
-#### Windows
-* Install MSVC
+Currently, the library works for Windows, Mac and Linux only on Intel CPUs:
 
-To install package run
-```bash
-pip install pytonlib
-```
+* (Windows) Install OpenSSL v1.1.1 for Win64 from [here](https://slproweb.com/products/Win32OpenSSL.html).
+* Install Python 3 package: `pip3 install pytonlib`.
 
 ### Docker
 
-Also, the library can be installed inside the Docker. 
-To deploy the example of service with Docker Compose run:
+In this repo Compose file is provided to deploy the example of service with *pytonlib*:
 ```bash
 docker-compose -f docker-compose.jupyter.yaml build
 docker-compose -f docker-compose.jupyter.yaml up -d
 ```
 
-This command runs Jupyter Notebook on port 3100 (http://localhost:3100).
+Jupyter Notebook will be available on port 3100 (http://localhost:3100).
 
 ## Examples
 
@@ -67,4 +62,30 @@ shards = await client.get_shards(master_seqno=masterchain_info['last']['seqno'])
 ```python
 masterchain_info = await client.get_masterchain_info()
 txs = await client.get_block_transactions(**masterchain_info['last'], count=10)
+```
+
+* Running async code from script:
+```python
+import requests
+import asyncio
+
+from pytonlib import TonlibClient
+
+
+async def main():
+    loop = asyncio.get_running_loop()
+    ton_config = requests.get('https://newton-blockchain.github.io/global.config.json').json()
+    
+    # init TonlibClient
+    client = TonlibClient(ls_index=0, # choose LiteServer index to connect
+                          config=ton_config,
+                          keystore='/tmp/ton_keystore',
+                          loop=loop)
+    
+    # init tonlibjson
+    await client.init(max_restarts=None)
+
+
+if __name__ == '__main__':
+    asyncio.run(main())
 ```
