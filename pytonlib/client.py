@@ -59,39 +59,58 @@ class TonlibClient:
         :param key: base64 pub key of liteserver node
         :return: None
         """
-        self.semaphore = asyncio.Semaphore(self.max_parallel_requests)
-        
-        self.loaded_contracts_num = 0
-        wrapper = TonLib(self.loop, self.ls_index, self.cdll_path)
-        keystore_obj = {
-            '@type': 'keyStoreTypeDirectory',
-            'directory': self.keystore
-        }
-        # create keystore
-        Path(self.keystore).mkdir(parents=True, exist_ok=True)
-
-        request = {
-            '@type': 'init',
-            'options': {
-                '@type': 'options',
-                'config': {
-                    '@type': 'config',
-                    'config': json.dumps(self.local_config),
-                    'use_callbacks_for_network': False,
-                    'blockchain_name': '',
-                    'ignore_cache': False
-                },
-                'keystore_type': keystore_obj
+        if self.tonlib_wrapper is None:            
+            self.loaded_contracts_num = 0
+            wrapper = TonLib(self.loop, self.ls_index, self.cdll_path)
+            keystore_obj = {
+                '@type': 'keyStoreTypeDirectory',
+                'directory': self.keystore
             }
-        }
-        self.tonlib_wrapper = wrapper
+            # create keystore
+            Path(self.keystore).mkdir(parents=True, exist_ok=True)
 
-        # set verbosity level
-        await self.set_verbosity_level(self.verbosity_level)
-        
-        # set confog
-        await self.tonlib_wrapper.execute(request)
-        logger.info(F"TonLib #{self.ls_index:03d} inited successfully")
+            request = {
+                '@type': 'init',
+                'options': {
+                    '@type': 'options',
+                    'config': {
+                        '@type': 'config',
+                        'config': json.dumps(self.local_config),
+                        'use_callbacks_for_network': False,
+                        'blockchain_name': '',
+                        'ignore_cache': False
+                    },
+                    'keystore_type': keystore_obj
+                }
+            }
+            self.tonlib_wrapper = wrapper
+
+            # set verbosity level
+            await self.set_verbosity_level(self.verbosity_level)
+            
+            # set confog
+            await self.tonlib_wrapper.execute(request)
+
+            # set semaphore
+            self.semaphore = asyncio.Semaphore(self.max_parallel_requests)
+            
+            logger.info(F"TonLib #{self.ls_index:03d} inited successfully")
+        else:
+            logger.warning(f'init is already done')
+
+    async def close(self):
+        if self.tonlib_wrapper is not None:
+            await self.tonlib_wrapper.close()
+            del self.tonlib_wrapper
+
+    async def __aenter__(self):
+        await self.init()
+
+    async def __aexit__(self, *args):
+        await self.close()
+
+    def __await__(self):
+        return self.init()
 
     async def set_verbosity_level(self, level):
         request = {

@@ -75,17 +75,15 @@ class TonLib:
         self.futures = {}
         self.loop = loop
         self.ls_index = ls_index
-        self._state = None  # None, "started", "finished", "crashed"
+        self._state = None  # None, "finished", "crashed", "stuck"
         self.verbose = verbose
 
         # creating tasks
         self.read_results_task = asyncio.ensure_future(self.read_results(), loop=self.loop)
-        
+        self.del_expired_futures_task = asyncio.ensure_future(self.del_expired_futures_loop(), loop=self.loop)
+    
     def __del__(self):
         try:
-            self.read_results_task.cancel()
-            self.cancel_futures(cancel_all=True)
-
             self._tonlib_json_client_destroy(self._client)
         except Exception as ee:
             logger.error(f"Exception in tonlibjson.__del__: {traceback.format_exc()}")
@@ -122,7 +120,16 @@ class TonLib:
     
     @property
     def _is_working(self):
-        return self._state not in ('crashed', 'stuck')
+        return self._state not in ('crashed', 'stuck', 'finished')
+
+    async def close(self):
+        try:
+            self._state = 'finished'
+            await self.read_results_task
+            await self.del_expired_futures_task
+        except Exception as ee:
+            logger.error(f"Exception in tonlibjson.close: {traceback.format_exc()}")
+            raise RuntimeError(f'Error in tonlibjson.close: {ee}')
 
     def cancel_futures(self, cancel_all=False):
         now = time.time()
@@ -160,6 +167,11 @@ class TonLib:
                         self.futures.pop(result["@extra"])
                 except Exception as e:
                     logger.error(f'Tonlib #{self.ls_index:03d} receiving result exception: {e}')
-            
-            # pruning tasks
+
+    async def del_expired_futures_loop(self):
+        while self._is_working:
             self.cancel_futures()
+            await asyncio.sleep(1)
+
+        # finished
+        self.cancel_futures(cancel_all=True)
