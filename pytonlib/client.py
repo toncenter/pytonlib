@@ -112,7 +112,8 @@ class TonlibClient:
         }
         return await self.tonlib_wrapper.execute(request)
 
-    async def raw_get_transactions(self, account_address: str, from_transaction_lt: str, from_transaction_hash: str):
+    # tonlib methods
+    async def raw_get_transactions(self, account_address: str, from_transaction_lt: str, from_transaction_hash: str, *args, **kwargs):
         """
         TL Spec:
             raw.getTransactions account_address:accountAddress from_transaction_id:internal.transactionId = raw.Transactions;
@@ -158,7 +159,7 @@ class TonlibClient:
         }
         return await self.tonlib_wrapper.execute(request)
 
-    async def raw_get_account_state(self, address: str):
+    async def raw_get_account_state(self, address: str, *args, **kwargs):
         """
         TL Spec:
             raw.getAccountState account_address:accountAddress = raw.AccountState;
@@ -185,7 +186,7 @@ class TonlibClient:
 
         return await self.tonlib_wrapper.execute(request)
 
-    async def generic_get_account_state(self, address: str):
+    async def generic_get_account_state(self, address: str, *args, **kwargs):
         # TODO: understand why this is not used
         account_address = prepare_address(address)
         request = {
@@ -196,7 +197,7 @@ class TonlibClient:
         }
         return await self.tonlib_wrapper.execute(request)
 
-    async def _load_contract(self, address):
+    async def _load_contract(self, address, *args, **kwargs):
         # TODO: understand why this is not used
         account_address = prepare_address(address)
         request = {
@@ -211,7 +212,7 @@ class TonlibClient:
         self.loaded_contracts_num += 1
         return result["id"]
 
-    async def raw_run_method(self, address, method, stack_data, output_layout=None):
+    async def raw_run_method(self, address, method, stack_data, output_layout=None, *args, **kwargs):
         """
           For numeric data only
           TL Spec:
@@ -254,7 +255,7 @@ class TonlibClient:
             r.pop('@type')
         return r
 
-    async def raw_send_message(self, serialized_boc):
+    async def raw_send_message(self, serialized_boc, *args, **kwargs):
         """
           raw.sendMessage body:bytes = Ok;
 
@@ -268,7 +269,7 @@ class TonlibClient:
         }
         return await self.tonlib_wrapper.execute(request)
 
-    async def _raw_create_query(self, destination, body, init_code=b'', init_data=b''):
+    async def _raw_create_query(self, destination, body, init_code=b'', init_data=b'', *args, **kwargs):
         """
           raw.createQuery destination:accountAddress init_code:bytes init_data:bytes body:bytes = query.Info;
 
@@ -296,7 +297,7 @@ class TonlibClient:
             raise TonLibWrongResult("raw.createQuery failed", result)
         return result
 
-    async def _raw_send_query(self, query_info):
+    async def _raw_send_query(self, query_info, *args, **kwargs):
         """
           query.send id:int53 = Ok;
         """
@@ -306,11 +307,11 @@ class TonlibClient:
         }
         return await self.tonlib_wrapper.execute(request)
 
-    async def raw_create_and_send_query(self, destination, body, init_code=b'', init_data=b''):
+    async def raw_create_and_send_query(self, destination, body, init_code=b'', init_data=b'', *args, **kwargs):
         query_info = await self._raw_create_query(destination, body, init_code, init_data)
         return self._raw_send_query(query_info)
 
-    async def raw_create_and_send_message(self, destination, body, initial_account_state=b''):
+    async def raw_create_and_send_message(self, destination, body, initial_account_state=b'', *args, **kwargs):
         # Very close to raw_create_and_send_query, but StateInit should be generated outside
         """
           raw.createAndSendMessage destination:accountAddress initial_account_state:bytes data:bytes = Ok;
@@ -331,7 +332,7 @@ class TonlibClient:
         }
         return await self.tonlib_wrapper.execute(request)
 
-    async def raw_estimate_fees(self, destination, body, init_code=b'', init_data=b'', ignore_chksig=True):
+    async def raw_estimate_fees(self, destination, body, init_code=b'', init_data=b'', ignore_chksig=True, *args, **kwargs):
         query_info = await self._raw_create_query(destination, body, init_code, init_data)
         request = {
             '@type': 'query.estimateFees',
@@ -340,7 +341,7 @@ class TonlibClient:
         }
         return await self.tonlib_wrapper.execute(request)
 
-    async def raw_get_block_transactions(self, fullblock, count, after_tx):
+    async def raw_get_block_transactions(self, fullblock, count, after_tx, *args, **kwargs):
         request = {
             '@type': 'blocks.getTransactions',
             'id': fullblock,
@@ -350,7 +351,7 @@ class TonlibClient:
         }
         return await self.tonlib_wrapper.execute(request)
 
-    async def raw_get_block_transactions_ext(self, fullblock, count, after_tx):
+    async def raw_get_block_transactions_ext(self, fullblock, count, after_tx, *args, **kwargs):
         request = {
             '@type': 'blocks.getTransactionsExt',
             'id': fullblock,

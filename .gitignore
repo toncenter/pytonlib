@@ -123,5 +123,5 @@ venv.bak/
 .idea/
 /private
 .DS_Store
-
+/RELEASE.md
 /sandbox

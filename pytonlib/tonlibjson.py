@@ -17,10 +17,15 @@ logger = logging.getLogger(__name__)
 
 def get_tonlib_path():
     arch_name = platform.system().lower()
+    machine = platform.machine().lower()
     if arch_name == 'linux':
-        lib_name = 'libtonlibjson.so'
+        lib_name = f'libtonlibjson.{machine}.so'
+    elif arch_name == 'darwin':
+        lib_name = f'libtonlibjson.{machine}.dylib'
+    elif arch_name == 'windows':
+        lib_name = f'tonlibjson.{machine}.dll'
     else:
-        raise RuntimeError('Platform could not be identified')
+        raise RuntimeError(f"Platform '{arch_name}({machine})' is not compatible yet")
     return pkg_resources.resource_filename('pytonlib', f'distlib/{arch_name}/{lib_name}')
 
 
@@ -148,8 +153,8 @@ class TonLib:
                 logger.critical(f"Tonlib #{self.ls_index:03d} Stuck!")
                 asyncio.ensure_future(self.restart(), loop=self.loop)
                 await asyncio.sleep(2)
-            except Exception as e:
-                logger.critical(f"Tonlib #{self.ls_index:03d} crashed!")
+            except:
+                logger.critical(f"Tonlib #{self.ls_index:03d} crashed: {traceback.format_exc()}")
                 asyncio.ensure_future(self.restart(), loop=self.loop)
                 await asyncio.sleep(2)
             

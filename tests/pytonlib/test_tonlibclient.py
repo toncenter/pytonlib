@@ -33,7 +33,7 @@ def ls_index():
 async def tonlib_client(tonlib_config, ton_keystore, ls_index):
     loop = asyncio.get_running_loop()
 
-    client = TonlibClient(ls_index=0, 
+    client = TonlibClient(ls_index=ls_index,
                           config=tonlib_config,
                           keystore=ton_keystore,
                           loop=loop,
@@ -72,3 +72,18 @@ async def test_get_transactions(tonlib_client: TonlibClient):
 
     tx = await tonlib_client.get_transactions(**txs['transactions'][0], limit=1)
     assert tx[0]['@type'] == 'raw.transaction'
+
+
+def test_sync_code(tonlib_config, ton_keystore, ls_index):
+    async def main():
+        loop = asyncio.get_running_loop()
+
+        client = TonlibClient(ls_index=ls_index,
+                              config=tonlib_config,
+                              keystore=ton_keystore,
+                              loop=loop,
+                              verbosity_level=0)
+        await client.init()
+        return client
+
+    asyncio.run(main())
