@@ -27,6 +27,8 @@ Jupyter Notebook will be available on port 3100 (http://localhost:3100).
 
 ## Examples
 
+We recommend to use IPython or Jupyter Notebook for prototyping because they allow to run `async` code. An example of running `async` code from script could be found in the end of this section.
+
 * Connecting to the first LiteServer in mainnet config:
 ```python
 import requests
@@ -48,7 +50,7 @@ client = TonlibClient(ls_index=0, # choose LiteServer index to connect
                       loop=loop)
 
 # init tonlibjson
-await client.init(max_restarts=None)
+await client.init()
 ```
 
 * Reading blocks info:
@@ -83,9 +85,22 @@ async def main():
                           loop=loop)
     
     # init tonlibjson
-    await client.init(max_restarts=None)
+    await client.init()
+    
+    # reading masterchain info
+    masterchain_info = await client.get_masterchain_info()
+
+    # closing session
+    await client.close()
 
 
 if __name__ == '__main__':
     asyncio.run(main())
+```
+
+## Running tests
+
+To run tests in *asyncio* mode use the following command: 
+```bash
+PYTHONPATH=./ pytest --asyncio-mode=strict tests/
 ```
