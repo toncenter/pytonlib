@@ -10,12 +10,12 @@ setup(
     author='K-Dimentional Tree',
     author_email='kdimentionaltree@gmail.com',
     name='pytonlib',
-    version='0.0.5',
+    version='0.0.6',
     packages=find_packages('.', exclude=['tests']),
     install_requires=[
-        'crc16==0.1.1',
-        'tvm_valuetypes==0.0.8',
-        'requests==2.27.1',
+        'crc16>=0.1.1',
+        'tvm_valuetypes>=0.0.9',
+        'requests>=2.27.1',
     ],
     package_data={
         'pytonlib': ['distlib/linux/*',
