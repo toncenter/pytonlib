@@ -90,6 +90,6 @@ jobs:
             github.git.createRef({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              ref: `refs/tags/${{ needs.set_version.outputs.version_tag }}`,
+              ref: `refs/tags/${{ needs.set_version.outputs.version }}`,
               sha: context.sha
             })
