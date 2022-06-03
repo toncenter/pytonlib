@@ -76,7 +76,7 @@ from pytonlib import TonlibClient
 
 async def main():
     loop = asyncio.get_running_loop()
-    ton_config = requests.get('https://newton-blockchain.github.io/global.config.json').json()
+    ton_config = requests.get('https://ton-blockchain.github.io/global.config.json').json()
     
     # init TonlibClient
     client = TonlibClient(ls_index=0, # choose LiteServer index to connect
