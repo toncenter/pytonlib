@@ -15,7 +15,7 @@ from pytonlib.client import TonlibClient
 
 @pytest.fixture
 def tonlib_config():
-    url = 'https://newton-blockchain.github.io/global.config.json'
+    url = 'https://ton-blockchain.github.io/global.config.json'
     return requests.get(url).json()
 
 
