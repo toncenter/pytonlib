@@ -56,7 +56,13 @@ jobs:
           user: __token__
           password: ${{ secrets.TEST_PYPI_PASSWORD }}
           repository_url: https://test.pypi.org/legacy/
-
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-package
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
   build_release_wheel:
     runs-on: "ubuntu-latest"
     if: ${{ github.repository == 'toncenter/pytonlib' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -102,3 +108,10 @@ jobs:
               ref: `refs/tags/${{ needs.set_version.outputs.version_tag }}`,
               sha: context.sha
             })
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: release-package
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
