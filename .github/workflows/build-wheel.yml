@@ -63,9 +63,10 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: pytonlib-package
+          path: dist
       - name: Check
         shell: bash -l {0}
-        run: ls -la
+        run: ls -la && ls-la dist/
       - name: Publish package to test PyPI
         if: ${{ github.repository == 'toncenter/pytonlib' && github.event_name == 'push' }}
         uses: pypa/gh-action-pypi-publish@master
