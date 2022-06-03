@@ -24,7 +24,7 @@ jobs:
       version_tag: ${{ steps.versioning.outputs.version_tag }}
   build_test_wheel:
     runs-on: "ubuntu-latest"
-    needs: [set_version]
+    needs: [ set_version ]
     steps:
       - name: Checkout source
         uses: actions/checkout@v2

@@ -78,9 +78,11 @@ class TonLib:
         self._state = None  # None, "finished", "crashed", "stuck"
         self.verbose = verbose
 
+        self.is_dead = False
+
         # creating tasks
-        self.read_results_task = asyncio.ensure_future(self.read_results(), loop=self.loop)
-        self.del_expired_futures_task = asyncio.ensure_future(self.del_expired_futures_loop(), loop=self.loop)
+        self.read_results_task = self.loop.create_task(self.read_results())
+        self.del_expired_futures_task = self.loop.create_task(self.del_expired_futures_loop())
     
     def __del__(self):
         try:
@@ -147,31 +149,39 @@ class TonLib:
         timeout = 1
         delta = 5
         receive_func = functools.partial(self.receive, timeout)
-
-        while self._is_working:
-            # return reading result
-            result = None
-            try:
-                result = await asyncio.wait_for(self.loop.run_in_executor(None, receive_func), timeout=timeout + delta)
-            except asyncio.TimeoutError:
-                logger.critical(f"Tonlib #{self.ls_index:03d} stuck (timeout error)")
-                self._state = "stuck"
-            except:
-                logger.critical(f"Tonlib #{self.ls_index:03d} crashed: {traceback.format_exc()}")
-                self._state = "crashed"
-            
-            if result and isinstance(result, dict) and ("@extra" in result) and (result["@extra"] in self.futures):
+        try:
+            while self._is_working:
+                # return reading result
+                result = None
                 try:
-                    if not self.futures[result["@extra"]].done():
-                        self.futures[result["@extra"]].set_result(result)
-                        self.futures.pop(result["@extra"])
-                except Exception as e:
-                    logger.error(f'Tonlib #{self.ls_index:03d} receiving result exception: {e}')
+                    result = await asyncio.wait_for(self.loop.run_in_executor(None, receive_func), timeout=timeout + delta)
+                except asyncio.TimeoutError:
+                    logger.critical(f"Tonlib #{self.ls_index:03d} stuck (timeout error)")
+                    self._state = "stuck"
+                except:
+                    logger.critical(f"Tonlib #{self.ls_index:03d} crashed: {traceback.format_exc()}")
+                    self._state = "crashed"
+                
+                if result and isinstance(result, dict) and ("@extra" in result) and (result["@extra"] in self.futures):
+                    try:
+                        if not self.futures[result["@extra"]].done():
+                            self.futures[result["@extra"]].set_result(result)
+                            self.futures.pop(result["@extra"])
+                    except Exception as e:
+                        logger.error(f'Tonlib #{self.ls_index:03d} receiving result exception: {e}')
+        except Exception as ee:
+            logger.critical(f'Task read_results failed: {ee}')
+        return
 
     async def del_expired_futures_loop(self):
-        while self._is_working:
-            self.cancel_futures()
-            await asyncio.sleep(1)
+        try:
+            while self._is_working:
+                self.cancel_futures()
+                await asyncio.sleep(1)
 
-        # finished
-        self.cancel_futures(cancel_all=True)
+            # finished
+            await self.close()
+            self.cancel_futures(cancel_all=True)
+        except Exception as ee:
+            logger.critical(f'Task del_expired_futures_loop failed: {ee}')
+        return
