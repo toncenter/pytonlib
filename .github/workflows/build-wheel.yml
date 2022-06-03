@@ -1,6 +1,6 @@
 name: Build package
 
-on: [push, pull_request]
+on: [push]
 
 jobs:
   set_version:
