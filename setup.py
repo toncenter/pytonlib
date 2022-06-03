@@ -7,7 +7,7 @@ with open(join(dirname(__file__), "README.md"), "r") as f:
     long_description = f.read()
 
 
-version = os.environ.get('PYTONLIB_VERSION', '0.0.7')
+version = os.environ.get('PYTONLIB_VERSION', '0.0.8')
 
 
 setup(
@@ -25,7 +25,8 @@ setup(
         'pytonlib': ['distlib/linux/*',
                      'distlib/darwin/*',
                      'distlib/windows/*',],
-        'pytonlib.utils': []
+        'pytonlib.utils': [],
+        '': ['requirements.txt']
     },
     zip_safe=True,
     python_requires='>=3.7',
