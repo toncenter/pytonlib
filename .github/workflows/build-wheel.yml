@@ -19,18 +19,6 @@ jobs:
           minor_pattern: "[MINOR]"
           format: "${major}.${minor}.${patch}a${increment}"
           bump_each_commit: false
-      - name: Create tag
-        if: ${{ github.ref == 'refs/heads/main' }}
-        uses: actions/github-script@v3
-        with:
-          github-token: ${{ github.token }}
-          script: |
-            github.git.createRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: `refs/tags/${{ steps.versioning.outputs.version_tag }}`,
-              sha: context.sha
-            })
     outputs:
       version: ${{ steps.versioning.outputs.version }}
       version_tag: ${{ steps.versioning.outputs.version_tag }}
@@ -47,6 +35,7 @@ jobs:
       - name: Install build dependencies
         run: |
           python -m pip install build wheel
+          python -m pip install -r requirements.txt
       - name: Build distributions
         shell: bash -l {0}
         run: PYTONLIB_VERSION=${{ needs.set_version.outputs.version }} python setup.py sdist bdist_wheel
@@ -82,6 +71,7 @@ jobs:
       - name: Install build dependencies
         run: |
           python -m pip install build wheel
+          python -m pip install -r requirements.txt
       - name: Build distributions
         shell: bash -l {0}
         run: PYTONLIB_VERSION=${{ needs.set_version.outputs.version_tag }} python setup.py sdist bdist_wheel
