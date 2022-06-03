@@ -26,7 +26,7 @@ def ton_keystore():
 
 @pytest.fixture
 def ls_index():
-    return 0
+    return 3
 
 
 @pytest_asyncio.fixture

@@ -1,16 +1,20 @@
+import os
+
 from setuptools import setup, find_packages
 from os.path import dirname, join
 
-
 with open(join(dirname(__file__), "README.md"), "r") as f:
     long_description = f.read()
+
+
+version = os.environ.get('PYTONLIB_VERSION', '0.0.7')
 
 
 setup(
     author='K-Dimentional Tree',
     author_email='kdimentionaltree@gmail.com',
     name='pytonlib',
-    version='0.0.6',
+    version=version,
     packages=find_packages('.', exclude=['tests']),
     install_requires=[
         'crc16>=0.1.1',
