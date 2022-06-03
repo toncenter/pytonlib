@@ -48,7 +48,7 @@ jobs:
         shell: bash -l {0}
         run: |
           python -m pip install pytest-asyncio==0.18.3
-          PYTHONPATH=./ pytest --asyncio-mode=strict tests/ -xs || echo "Warning! Some tests failed"
+          PYTHONPATH=./ pytest --asyncio-mode=strict tests/ || echo "Warning! Some tests failed"
       - name: Publish package to test PyPI
         if: ${{ github.repository == 'toncenter/pytonlib' && github.event_name == 'push' }}
         uses: pypa/gh-action-pypi-publish@master
@@ -90,7 +90,7 @@ jobs:
         shell: bash -l {0}
         run: |
           python -m pip install pytest-asyncio==0.18.3
-          PYTHONPATH=./ pytest --asyncio-mode=strict tests/ -xs || echo "Warning! Some tests failed"
+          PYTHONPATH=./ pytest --asyncio-mode=strict tests/ || echo "Warning! Some tests failed"
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@master
         with:
