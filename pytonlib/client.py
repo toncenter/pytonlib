@@ -656,6 +656,9 @@ class TonlibClient:
         workchain = dest["raw_form"].split(":")[0]
         shards = await self.get_shards(lt=int(creation_lt))
 
+        if shards.get('@type', 'error') == 'error':
+            raise TonLibWrongResult('get_shards failed', shards)
+
         for shard_data in shards['shards']:
             shardchain = shard_data['shard']
             for b in range(3):
@@ -694,6 +697,9 @@ class TonlibClient:
         dest = detect_address(destination)
         workchain = src["raw_form"].split(":")[0]
         shards = await self.get_shards(lt=int(creation_lt))
+
+        if shards.get('@type', 'error') == 'error':
+            raise TonLibWrongResult('get_shards failed', shards)
 
         for shard_data in shards['shards']:
             shardchain = shard_data['shard']
