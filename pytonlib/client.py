@@ -258,8 +258,6 @@ class TonlibClient:
         r = await self.tonlib_wrapper.execute(request)
         if 'stack' in r:
             r['stack'] = serialize_tvm_stack(r['stack'])
-        if '@type' in r and r['@type'] == 'smc.runResult':
-            r.pop('@type')
         return r
 
     async def raw_send_message(self, serialized_boc, *args, **kwargs):
@@ -384,7 +382,7 @@ class TonlibClient:
             from_transaction_hash = hash_to_hex(from_transaction_hash)
         if (from_transaction_lt == None) or (from_transaction_hash == None):
             addr = await self.raw_get_account_state(account)
-            if '@type' in addr and addr['@type'] == "error":
+            if addr.get('@type', 'error') == "error":
                 raise TonLibWrongResult("raw.getAccountState failed", addr)
             try:
                 from_transaction_lt, from_transaction_hash = int(
@@ -542,9 +540,7 @@ class TonlibClient:
 
         while incomplete:
             result = await self.raw_get_block_transactions(fullblock, count, after_tx)
-            if(result['@type']) == 'error':
-                result = await self.raw_get_block_transactions(fullblock, count, after_tx)
-            if(result['@type']) == 'error':
+            if result.get('@type', 'error') == 'error':
                 raise TonLibWrongResult('Can\'t get blockTransactions', result)
             if not total_result:
                 total_result = result
@@ -598,9 +594,7 @@ class TonlibClient:
 
         while incomplete:
             result = await self.raw_get_block_transactions_ext(fullblock, count, after_tx)
-            if(result['@type']) == 'error':
-                result = await self.raw_get_block_transactions_ext(fullblock, count, after_tx)
-            if(result['@type']) == 'error':
+            if result.get('@type', 'error') == 'error':
                 raise TonLibWrongResult('Can\'t get blockTransactions', result)
             if not total_result:
                 total_result = result
