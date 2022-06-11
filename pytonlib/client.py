@@ -385,8 +385,6 @@ class TonlibClient:
         if (from_transaction_lt == None) or (from_transaction_hash == None):
             addr = await self.raw_get_account_state(account)
             if '@type' in addr and addr['@type'] == "error":
-                addr = await self.raw_get_account_state(account)
-            if '@type' in addr and addr['@type'] == "error":
                 raise TonLibWrongResult("raw.getAccountState failed", addr)
             try:
                 from_transaction_lt, from_transaction_hash = int(
@@ -399,13 +397,10 @@ class TonlibClient:
         current_lt, curret_hash = from_transaction_lt, from_transaction_hash
         while (not reach_lt) and (len(all_transactions) < limit):
             raw_transactions = await self.raw_get_transactions(account, current_lt, curret_hash)
-            if(raw_transactions['@type']) == 'error':
-                break
-                # TODO probably we should chenge get_transactions API
-                # if 'message' in raw_transactions['message']:
-                #  raise Exception(raw_transactions['message'])
-                # else:
-                #  raise Exception("Can't get transactions")
+            if raw_transactions.get('@type', 'error') == 'error':
+                error_message = raw_transactions.get('message', '')
+                raise TonLibWrongResult(f"Couldn't get next transactions chunk: {error_message}", raw_transactions)
+
             transactions, next = raw_transactions['transactions'], raw_transactions.get(
                 "previous_transaction_id", None)
             for t in transactions:
