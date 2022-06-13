@@ -484,7 +484,7 @@ class TonlibClient:
         return result
 
     async def lookup_block(self, workchain, shard, seqno=None, lt=None, unixtime=None, *args, **kwargs):
-        assert seqno or lt or unixtime, "Seqno, LT or unixtime should be defined"
+        assert (seqno is not None) or (lt is not None) or (unixtime is not None), "Seqno, LT or unixtime should be defined"
         mode = 0
         if seqno:
             mode += 1
@@ -507,7 +507,7 @@ class TonlibClient:
         return await self.tonlib_wrapper.execute(request)
 
     async def get_shards(self, master_seqno=None, lt=None, unixtime=None, *args, **kwargs):
-        assert master_seqno or lt or unixtime, "Seqno, LT or unixtime should be defined"
+        assert (master_seqno is not None) or (lt is not None) or (unixtime is not None), "Seqno, LT or unixtime should be defined"
         wc, shard = -1, -9223372036854775808
         fullblock = await self.lookup_block(wc, shard, master_seqno, lt, unixtime)
         request = {
