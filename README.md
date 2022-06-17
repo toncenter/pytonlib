@@ -7,6 +7,8 @@ with the following restrictions:
 * a client is asyncronious;
 * no requests cache.
 
+[![PyPI version](https://badge.fury.io/py/pytonlib.svg)](https://badge.fury.io/py/pytonlib) ![visitors](https://visitor-badge.glitch.me/badge?page_id=toncenter.pytonlib.readme&left_color=gray&right_color=red)
+
 ## Installation
 
 ### From PyPi
