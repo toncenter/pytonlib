@@ -61,7 +61,7 @@ class TonlibClient:
         """
         if self.tonlib_wrapper is None:            
             self.loaded_contracts_num = 0
-            wrapper = TonLib(self.loop, self.ls_index, self.cdll_path)
+            wrapper = TonLib(self.loop, self.ls_index, self.cdll_path, self.verbosity_level)
             keystore_obj = {
                 '@type': 'keyStoreTypeDirectory',
                 'directory': self.keystore
@@ -85,9 +85,6 @@ class TonlibClient:
             }
             self.tonlib_wrapper = wrapper
 
-            # set verbosity level
-            await self.set_verbosity_level(self.verbosity_level)
-            
             # set confog
             await self.tonlib_wrapper.execute(request)
 
@@ -111,13 +108,6 @@ class TonlibClient:
 
     def __await__(self):
         return self.init()
-
-    async def set_verbosity_level(self, level):
-        request = {
-            '@type': 'setLogVerbosityLevel',
-            'new_verbosity_level': level
-        }
-        return await self.tonlib_wrapper.execute(request)
 
     # tonlib methods
     async def raw_get_transactions(self, account_address: str, from_transaction_lt: str, from_transaction_hash: str, *args, **kwargs):

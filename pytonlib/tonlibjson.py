@@ -40,9 +40,18 @@ class TonLibWrongResult(Exception):
 
 # class TonLib for single liteserver
 class TonLib:
-    def __init__(self, loop, ls_index, cdll_path=None, verbose=0):
+    def __init__(self, loop, ls_index, cdll_path=None, verbosity_level=0):
         cdll_path = get_tonlib_path() if not cdll_path else cdll_path
         tonlib = CDLL(cdll_path)
+
+        tonlib_client_set_verbosity_level = tonlib.tonlib_client_set_verbosity_level
+        tonlib_client_set_verbosity_level.restype = None
+        tonlib_client_set_verbosity_level.argtypes = [c_int]
+
+        try:
+            tonlib_client_set_verbosity_level(verbosity_level)
+        except Exception as ee:
+            raise RuntimeError(f"Failed to set verbosity level: {ee}")
 
         tonlib_json_client_create = tonlib.tonlib_client_json_create
         tonlib_json_client_create.restype = c_void_p
@@ -76,7 +85,6 @@ class TonLib:
         self.loop = loop
         self.ls_index = ls_index
         self._state = None  # None, "finished", "crashed", "stuck"
-        self.verbose = verbose
 
         self.is_dead = False
 
