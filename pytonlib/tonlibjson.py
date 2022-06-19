@@ -131,8 +131,7 @@ class TonLib:
         future_result = self.loop.create_future()
         self.futures[extra_id] = future_result
 
-        self.send(query)
-
+        self.loop.run_in_executor(None, lambda: self.send(query))
         return future_result
     
     @property
