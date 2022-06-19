@@ -100,6 +100,9 @@ class TonLib:
             raise RuntimeError(f'Error in tonlibjson.__del__: {ee}')
 
     def send(self, query):
+        if not self._is_working:
+            raise RuntimeError(f"TonLib failed with state: {self._state}")
+
         query = json.dumps(query).encode('utf-8')
         try:
             self._tonlib_json_client_send(self._client, query)
@@ -119,13 +122,17 @@ class TonLib:
         return result
 
     def execute(self, query, timeout=10):
+        if not self._is_working:
+            raise RuntimeError(f"TonLib failed with state: {self._state}")
+
         extra_id = "%s:%s:%s" % (time.time() + timeout, self.ls_index, random.random())
         query["@extra"] = extra_id
         
         future_result = self.loop.create_future()
         self.futures[extra_id] = future_result
 
-        self.loop.run_in_executor(None, lambda: self.send(query))
+        self.send(query)
+
         return future_result
     
     @property
@@ -179,7 +186,6 @@ class TonLib:
                         logger.error(f'Tonlib #{self.ls_index:03d} receiving result exception: {e}')
         except Exception as ee:
             logger.critical(f'Task read_results failed: {ee}')
-        return
 
     async def del_expired_futures_loop(self):
         try:
@@ -187,9 +193,6 @@ class TonLib:
                 self.cancel_futures()
                 await asyncio.sleep(1)
 
-            # finished
-            await self.close()
             self.cancel_futures(cancel_all=True)
         except Exception as ee:
             logger.critical(f'Task del_expired_futures_loop failed: {ee}')
-        return
