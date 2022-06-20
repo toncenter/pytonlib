@@ -98,16 +98,17 @@ class TonlibClient:
     async def close(self):
         if self.tonlib_wrapper is not None:
             await self.tonlib_wrapper.close()
-            del self.tonlib_wrapper
+            self.tonlib_wrapper = None
 
     async def __aenter__(self):
         await self.init()
+        return self
 
     async def __aexit__(self, *args):
         await self.close()
 
     def __await__(self):
-        return self.init()
+        return self.init().__await__()
 
     # tonlib methods
     async def raw_get_transactions(self, account_address: str, from_transaction_lt: str, from_transaction_hash: str, *args, **kwargs):
