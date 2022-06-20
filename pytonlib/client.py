@@ -4,7 +4,7 @@ import codecs
 import struct
 import logging
 
-from pytonlib.tonlibjson import TonLib, TonLibWrongResult
+from pytonlib.tonlibjson import TonLib
 from pytonlib.utils.address import prepare_address, detect_address
 from pytonlib.utils.common import b64str_to_hex, hex_to_b64str, hash_to_hex
 
@@ -37,7 +37,6 @@ class TonlibClient:
 
         self.semaphore = None
         self.tonlib_wrapper = None
-        self.loaded_contracts_num = None
 
     @property
     def local_config(self):
@@ -60,7 +59,6 @@ class TonlibClient:
         :return: None
         """
         if self.tonlib_wrapper is None:            
-            self.loaded_contracts_num = 0
             wrapper = TonLib(self.loop, self.ls_index, self.cdll_path, self.verbosity_level)
             keystore_obj = {
                 '@type': 'keyStoreTypeDirectory',
@@ -205,9 +203,6 @@ class TonlibClient:
             }
         }
         result = await self.tonlib_wrapper.execute(request)
-        if result.get('@type', 'error') == 'error':
-            raise TonLibWrongResult("smc.load failed", result)
-        self.loaded_contracts_num += 1
         return result["id"]
 
     async def raw_run_method(self, address, method, stack_data, output_layout=None, *args, **kwargs):
@@ -288,10 +283,7 @@ class TonlibClient:
                 'account_address': destination
             }
         }
-        result = await self.tonlib_wrapper.execute(request)
-        if result.get('@type', 'error') == 'error':
-            raise TonLibWrongResult("raw.createQuery failed", result)
-        return result
+        return await self.tonlib_wrapper.execute(request)
 
     async def _raw_send_query(self, query_info, *args, **kwargs):
         """
@@ -373,25 +365,14 @@ class TonlibClient:
             from_transaction_hash = hash_to_hex(from_transaction_hash)
         if (from_transaction_lt == None) or (from_transaction_hash == None):
             addr = await self.raw_get_account_state(account)
-            if addr.get('@type', 'error') == "error":
-                raise TonLibWrongResult("raw.getAccountState failed", addr)
-            try:
-                from_transaction_lt, from_transaction_hash = int(
-                    addr["last_transaction_id"]["lt"]), b64str_to_hex(addr["last_transaction_id"]["hash"])
-            except KeyError:
-                raise TonLibWrongResult(
-                    "Can't get last_transaction_id data", addr)
+            from_transaction_lt, from_transaction_hash = int(
+                addr["last_transaction_id"]["lt"]), b64str_to_hex(addr["last_transaction_id"]["hash"])
         reach_lt = False
         all_transactions = []
         current_lt, curret_hash = from_transaction_lt, from_transaction_hash
         while (not reach_lt) and (len(all_transactions) < limit):
             raw_transactions = await self.raw_get_transactions(account, current_lt, curret_hash)
-            if raw_transactions.get('@type', 'error') == 'error':
-                error_message = raw_transactions.get('message', '')
-                raise TonLibWrongResult(f"Couldn't get next transactions chunk: {error_message}", raw_transactions)
-
-            transactions, next = raw_transactions['transactions'], raw_transactions.get(
-                "previous_transaction_id", None)
+            transactions, next = raw_transactions['transactions'], raw_transactions.get("previous_transaction_id")
             for t in transactions:
                 tlt = int(t['transaction_id']['lt'])
                 if tlt <= to_transaction_lt:
@@ -470,8 +451,6 @@ class TonlibClient:
             '@type': 'blocks.getMasterchainInfo'
         }
         result = await self.tonlib_wrapper.execute(request)
-        if result.get('@type', 'error') == 'error':
-            raise TonLibWrongResult("blocks.getMasterchainInfo failed", result)
         return result
 
     async def lookup_block(self, workchain, shard, seqno=None, lt=None, unixtime=None, *args, **kwargs):
@@ -531,8 +510,6 @@ class TonlibClient:
 
         while incomplete:
             result = await self.raw_get_block_transactions(fullblock, count, after_tx)
-            if result.get('@type', 'error') == 'error':
-                raise TonLibWrongResult('Can\'t get blockTransactions', result)
             if not total_result:
                 total_result = result
             else:
@@ -585,8 +562,6 @@ class TonlibClient:
 
         while incomplete:
             result = await self.raw_get_block_transactions_ext(fullblock, count, after_tx)
-            if result.get('@type', 'error') == 'error':
-                raise TonLibWrongResult('Can\'t get blockTransactions', result)
             if not total_result:
                 total_result = result
             else:
@@ -636,9 +611,6 @@ class TonlibClient:
         workchain = dest["raw_form"].split(":")[0]
         shards = await self.get_shards(lt=int(creation_lt))
 
-        if shards.get('@type', 'error') == 'error':
-            raise TonLibWrongResult('get_shards failed', shards)
-
         for shard_data in shards['shards']:
             shardchain = shard_data['shard']
             for b in range(3):
@@ -677,9 +649,6 @@ class TonlibClient:
         dest = detect_address(destination)
         workchain = src["raw_form"].split(":")[0]
         shards = await self.get_shards(lt=int(creation_lt))
-
-        if shards.get('@type', 'error') == 'error':
-            raise TonLibWrongResult('get_shards failed', shards)
 
         for shard_data in shards['shards']:
             shardchain = shard_data['shard']

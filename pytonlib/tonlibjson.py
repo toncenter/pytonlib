@@ -15,6 +15,38 @@ from ctypes import *
 logger = logging.getLogger(__name__)
 
 
+class TonlibError(Exception):
+    def __init__(self, result):
+        self.result = result
+
+    @property
+    def code(self):
+        return self.result.get('code')
+
+    def __str__(self):
+        return self.result.get('message')
+
+class LiteServerTimeout(TonlibError):
+    pass
+
+class BlockNotFound(TonlibError):
+    pass
+
+class ExternalMessageNotAccepted(TonlibError):
+    pass
+
+def parse_tonlib_error(result):
+    if result.get('@type') == 'error':
+        message = result.get('message')
+        if 'not in db' in message:
+            return BlockNotFound(result)
+        if 'cannot apply external message to current state' in message:
+            return ExternalMessageNotAccepted(result)
+        if 'adnl query timeout' in message:
+            return LiteServerTimeout(result)
+        return TonlibError(result)
+    return None
+
 def get_tonlib_path():
     arch_name = platform.system().lower()
     machine = platform.machine().lower()
@@ -27,16 +59,6 @@ def get_tonlib_path():
     else:
         raise RuntimeError(f"Platform '{arch_name}({machine})' is not compatible yet")
     return pkg_resources.resource_filename('pytonlib', f'distlib/{arch_name}/{lib_name}')
-
-
-class TonLibWrongResult(Exception):
-    def __init__(self, description, result={}):
-        self.description = description
-        self.result = result
-
-    def __str__(self):
-        return f"{self.description} - unexpected lite server response:\n\t{json.dumps(self.result)}"
-
 
 # class TonLib for single liteserver
 class TonLib:
@@ -176,11 +198,15 @@ class TonLib:
                     logger.critical(f"Tonlib #{self.ls_index:03d} crashed: {traceback.format_exc()}")
                     self._state = "crashed"
                 
-                if result and isinstance(result, dict) and ("@extra" in result) and (result["@extra"] in self.futures):
+                if isinstance(result, dict) and ("@extra" in result) and (result["@extra"] in self.futures):
                     try:
                         if not self.futures[result["@extra"]].done():
-                            self.futures[result["@extra"]].set_result(result)
-                            self.futures.pop(result["@extra"])
+                            tonlib_error = parse_tonlib_error(result)
+                            if tonlib_error is not None:
+                                self.futures[result["@extra"]].set_exception(tonlib_error)
+                            else:
+                                self.futures[result["@extra"]].set_result(result)
+                        self.futures.pop(result["@extra"])
                     except Exception as e:
                         logger.error(f'Tonlib #{self.ls_index:03d} receiving result exception: {e}')
         except Exception as ee:
