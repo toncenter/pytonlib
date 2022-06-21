@@ -32,6 +32,9 @@ class LiteServerTimeout(TonlibError):
 class BlockNotFound(TonlibError):
     pass
 
+class BlockDeleted(TonlibError):
+    pass
+
 class ExternalMessageNotAccepted(TonlibError):
     pass
 
@@ -40,6 +43,8 @@ def parse_tonlib_error(result):
         message = result.get('message')
         if 'not in db' in message:
             return BlockNotFound(result)
+        if "state already gc'd" in message:
+            return BlockDeleted(result)
         if 'cannot apply external message to current state' in message:
             return ExternalMessageNotAccepted(result)
         if 'adnl query timeout' in message:
