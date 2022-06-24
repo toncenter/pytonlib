@@ -1,2 +1,2 @@
 from pytonlib.client import TonlibClient
-from pytonlib.tonlibjson import TonlibError, LiteServerTimeout, BlockNotFound, ExternalMessageNotAccepted, BlockDeleted
+from pytonlib.tonlibjson import TonlibNoResponse, TonlibError, LiteServerTimeout, BlockNotFound, ExternalMessageNotAccepted, BlockDeleted

@@ -14,8 +14,14 @@ from ctypes import *
 
 logger = logging.getLogger(__name__)
 
+class TonlibException(Exception):
+    pass
 
-class TonlibError(Exception):
+class TonlibNoResponse(TonlibException):
+    def __str__(self):
+        return 'tonlibjson did not respond'
+
+class TonlibError(TonlibException):
     def __init__(self, result):
         self.result = result
 
@@ -182,7 +188,7 @@ class TonLib:
                 to_del.append(i)
         logger.debug(f'Pruning {len(to_del)} tasks')
         for i in to_del:
-            self.futures[i].cancel()
+            self.futures[i].set_exception(TonlibNoResponse())
             self.futures.pop(i)
 
     # tasks
