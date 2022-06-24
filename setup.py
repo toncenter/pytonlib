@@ -25,6 +25,7 @@ setup(
     package_data={
         'pytonlib': ['distlib/linux/*',
                      'distlib/darwin/*',
+                     'distlib/freebsd/*',
                      'distlib/windows/*',],
         'pytonlib.utils': [],
         '': ['requirements.txt']
