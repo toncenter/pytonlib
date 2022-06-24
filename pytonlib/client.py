@@ -2,7 +2,6 @@ import asyncio
 import json
 import codecs
 import struct
-import logging
 
 from pytonlib.tonlibjson import TonLib
 from pytonlib.utils.address import prepare_address, detect_address
@@ -14,8 +13,7 @@ from pathlib import Path
 from datetime import datetime
 from copy import deepcopy
 
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 class TonlibClient:

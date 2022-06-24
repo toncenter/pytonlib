@@ -20,6 +20,7 @@ setup(
         'crc16>=0.1.1',
         'tvm_valuetypes>=0.0.9',
         'requests>=2.27.1',
+        'loguru==0.6.0'
     ],
     package_data={
         'pytonlib': ['distlib/linux/*',
