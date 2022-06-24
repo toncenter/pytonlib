@@ -6,11 +6,10 @@ import asyncio
 import struct
 import crc16
 import codecs
-import logging
 
 from functools import wraps
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 def b64str_to_bytes(b64str):

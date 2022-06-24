@@ -1,4 +1,3 @@
-import logging
 import requests
 import pytest
 import pytest_asyncio
@@ -6,11 +5,6 @@ import asyncio
 
 from time import time
 from pytonlib.client import TonlibClient
-
-
-# logging.basicConfig(format='%(asctime)s %(module)-15s %(message)s',
-#                     level=logging.INFO)
-# logger = logging.getLogger(__name__)
 
 
 @pytest.fixture
