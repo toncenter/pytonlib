@@ -1,7 +1,7 @@
 # PyTONLib
 
-![![PyPI](https://img.shields.io/pypi/v/pytonlib?color=blue)](https://pypi.org/project/pytonlib/)
-![![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pytonlib)](https://pypi.org/project/pytonlib/)
+[![PyPI](https://img.shields.io/pypi/v/pytonlib?color=blue)](https://pypi.org/project/pytonlib/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/pytonlib)](https://pypi.org/project/pytonlib/)
 ![Github last commit](https://img.shields.io/github/last-commit/toncenter/pytonlib)
 
 
