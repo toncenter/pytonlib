@@ -38,7 +38,7 @@ from pytonlib import TonlibClient
 
 
 # downloading mainnet config
-ton_config = requests.get('https://newton-blockchain.github.io/global.config.json').json()
+ton_config = requests.get('https://ton-blockchain.github.io/global.config.json').json()
 
 # get running event loop
 loop = asyncio.get_running_loop()
