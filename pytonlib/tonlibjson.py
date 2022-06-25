@@ -7,11 +7,12 @@ import random
 import asyncio
 import time
 import functools
+import logging
 
 from copy import deepcopy
 from ctypes import *
 
-from loguru import logger
+logger = logging.getLogger(__name__)
 
 
 class TonlibException(Exception):
