@@ -7,7 +7,7 @@ with open(join(dirname(__file__), "README.md"), "r") as f:
     long_description = f.read()
 
 
-version = os.environ.get('PYTONLIB_VERSION', '0.0.8')
+version = os.environ.get('PYTONLIB_VERSION', 'dev')
 
 
 setup(
