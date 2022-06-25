@@ -65,6 +65,8 @@ def get_tonlib_path():
         lib_name = f'libtonlibjson.{machine}.so'
     elif arch_name == 'darwin':
         lib_name = f'libtonlibjson.{machine}.dylib'
+    elif arch_name == 'freebsd':
+        lib_name = f'libtonlibjson.{machine}.so'
     elif arch_name == 'windows':
         lib_name = f'tonlibjson.{machine}.dll'
     else:
