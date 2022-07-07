@@ -288,6 +288,7 @@ class TransactionDescr:
     
     def _init_tick_tock(self, cell_slice: Slice):
         self.type = 'trans_tick_tock'
+        self.is_tock = cell_slice.read_next(1).any()
         self.storage_ph = TrStoragePhase(cell_slice)
         self.compute_ph = TrComputePhase(cell_slice)
         self.action = TrActionPhase(cell_slice.read_next_ref()) if cell_slice.read_next(1).any() else None
