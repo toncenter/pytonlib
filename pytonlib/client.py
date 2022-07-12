@@ -455,11 +455,11 @@ class TonlibClient:
     async def lookup_block(self, workchain, shard, seqno=None, lt=None, unixtime=None, *args, **kwargs):
         assert (seqno is not None) or (lt is not None) or (unixtime is not None), "Seqno, LT or unixtime should be defined"
         mode = 0
-        if seqno:
+        if seqno is not None:
             mode += 1
-        if lt:
+        if lt is not None:
             mode += 2
-        if unixtime:
+        if unixtime is not None:
             mode += 4
         request = {
             '@type': 'blocks.lookupBlock',
