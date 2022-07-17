@@ -3,6 +3,7 @@ import json
 import codecs
 import struct
 import logging
+import os
 
 from pytonlib.tonlibjson import TonLib
 from pytonlib.utils.address import prepare_address, detect_address
@@ -25,16 +26,17 @@ class TonlibClient:
                  loop,
                  cdll_path=None,
                  verbosity_level=0):
+        if not os.access(keystore, os.F_OK):
+            raise FileNotFoundError(f'Keystore directory {keystore} does not exist')
+        if not os.access(keystore, os.W_OK | os.R_OK | os.X_OK):
+            raise PermissionError(f'Keystore directory {keystore} does not have required permissions (rwx)')
+
         self.ls_index = ls_index
         self.config = config
         self.keystore = keystore
         self.cdll_path = cdll_path
         self.loop = loop
         self.verbosity_level = verbosity_level
-        self.max_parallel_requests = config['liteservers'][0].get(
-            "max_parallel_requests", 50)
-
-        self.semaphore = None
         self.tonlib_wrapper = None
 
     @property
@@ -63,8 +65,6 @@ class TonlibClient:
                 '@type': 'keyStoreTypeDirectory',
                 'directory': self.keystore
             }
-            # create keystore
-            Path(self.keystore).mkdir(parents=True, exist_ok=True)
 
             request = {
                 '@type': 'init',
@@ -84,9 +84,6 @@ class TonlibClient:
 
             # set confog
             await self.tonlib_wrapper.execute(request)
-
-            # set semaphore
-            self.semaphore = asyncio.Semaphore(self.max_parallel_requests)
             
             logger.info(F"TonLib #{self.ls_index:03d} inited successfully")
         else:

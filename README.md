@@ -38,6 +38,7 @@ We recommend to use IPython or Jupyter Notebook for prototyping because they all
 ```python
 import requests
 import asyncio
+from pathlib import Path
 
 from pytonlib import TonlibClient
 
@@ -48,10 +49,14 @@ ton_config = requests.get('https://ton-blockchain.github.io/global.config.json')
 # get running event loop
 loop = asyncio.get_running_loop()
 
+# create keystore directory for tonlib
+keystore_dir = '/tmp/ton_keystore'
+Path(keystore_dir).mkdir(parents=True, exist_ok=True)
+
 # init TonlibClient
 client = TonlibClient(ls_index=0, # choose LiteServer index to connect
                       config=ton_config,
-                      keystore='/tmp/ton_keystore',
+                      keystore=keystore_dir,
                       loop=loop)
 
 # init tonlibjson
@@ -75,6 +80,7 @@ txs = await client.get_block_transactions(**masterchain_info['last'], count=10)
 ```python
 import requests
 import asyncio
+from pathlib import Path
 
 from pytonlib import TonlibClient
 
@@ -82,11 +88,15 @@ from pytonlib import TonlibClient
 async def main():
     loop = asyncio.get_running_loop()
     ton_config = requests.get('https://ton-blockchain.github.io/global.config.json').json()
+
+    # create keystore directory for tonlib
+    keystore_dir = '/tmp/ton_keystore'
+    Path(keystore_dir).mkdir(parents=True, exist_ok=True)
     
     # init TonlibClient
     client = TonlibClient(ls_index=0, # choose LiteServer index to connect
                           config=ton_config,
-                          keystore='/tmp/ton_keystore',
+                          keystore=keystore_dir,
                           loop=loop)
     
     # init tonlibjson
