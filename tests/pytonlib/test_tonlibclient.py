@@ -4,6 +4,7 @@ import pytest_asyncio
 import asyncio
 
 from time import time
+from pathlib import Path
 from pytonlib.client import TonlibClient
 
 
@@ -26,7 +27,7 @@ def ls_index():
 @pytest_asyncio.fixture
 async def tonlib_client(tonlib_config, ton_keystore, ls_index):
     loop = asyncio.get_running_loop()
-
+    Path(ton_keystore).mkdir(parents=True, exist_ok=True)
     client = TonlibClient(ls_index=ls_index,
                           config=tonlib_config,
                           keystore=ton_keystore,
@@ -114,6 +115,7 @@ def test_sync_code(tonlib_config, ton_keystore, ls_index):
         loop = asyncio.get_running_loop()
         exception = None
         try:
+            Path(ton_keystore).mkdir(parents=True, exist_ok=True)
             client = TonlibClient(ls_index=ls_index,
                                 config=tonlib_config,
                                 keystore=ton_keystore,
