@@ -248,10 +248,17 @@ class TonlibClient:
 
           :param serialized_boc: bytes, serialized bag of cell
         """
-        serialized_boc = codecs.decode(codecs.encode(
-            serialized_boc, "base64"), 'utf-8').replace("\n", '')
+        serialized_boc = codecs.decode(codecs.encode(serialized_boc, "base64"), 'utf-8').replace("\n", '')
         request = {
             '@type': 'raw.sendMessage',
+            'body': serialized_boc
+        }
+        return await self.tonlib_wrapper.execute(request)
+    
+    async def raw_send_message_return_hash(self, serialized_boc, *args, **kwargs):
+        serialized_boc = codecs.decode(codecs.encode(serialized_boc, "base64"), 'utf-8').replace("\n", '')
+        request = {
+            '@type': 'raw.sendMessageReturnHash',
             'body': serialized_boc
         }
         return await self.tonlib_wrapper.execute(request)
