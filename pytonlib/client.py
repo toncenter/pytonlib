@@ -601,6 +601,18 @@ class TonlibClient:
         }
         return await self.tonlib_wrapper.execute(request)
 
+    async def get_config(self, config_id: int, seqno: int):
+        wc, shard = -1, -9223372036854775808
+        fullblock = await self.lookup_block(wc, shard, seqno)
+        request = {
+            '@type': 'getConfigParam',
+            'id': fullblock,
+            'param': config_id,
+            'mode': 0
+        }
+
+        return await self.tonlib_wrapper.execute(request)
+
     async def try_locate_tx_by_incoming_message(self, source, destination, creation_lt, *args, **kwargs):
         src = detect_address(source)
         dest = detect_address(destination)
