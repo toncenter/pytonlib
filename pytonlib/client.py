@@ -608,7 +608,7 @@ class TonlibClient:
         }
         return await self.tonlib_wrapper.execute(request)
 
-    async def get_config(self, config_id: int, seqno: int, *args, **kwargs):
+    async def get_config_param(self, config_id: int, seqno: int, *args, **kwargs):
         wc, shard = -1, -9223372036854775808
         fullblock = await self.lookup_block(wc, shard, seqno)
         request = {
