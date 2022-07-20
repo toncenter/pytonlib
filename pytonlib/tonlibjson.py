@@ -149,12 +149,15 @@ class TonLib:
     def receive(self, timeout=10):
         result = None
         try:
+            logger.error(f"Tonlibjson before _tonlib_json_client_receive")
             result = self._tonlib_json_client_receive(self._client, timeout)  # time.sleep # asyncio.sleep
         except Exception as ee:
             logger.error(f"Exception in tonlibjson.receive: {traceback.format_exc()}")
             raise RuntimeError(f'Error in tonlibjson.receive: {ee}')
         if result:
             result = json.loads(result.decode('utf-8'))
+        else:
+            logger.error(f"Tonlibjson receved null result")
         return result
 
     def execute(self, query, timeout=10):
@@ -223,6 +226,8 @@ class TonLib:
                         self.futures.pop(result["@extra"])
                     except Exception as e:
                         logger.error(f'Tonlib #{self.ls_index:03d} receiving result exception: {e}')
+                else:
+                    logger.error(f'Tonlib #{self.ls_index:03d} received result unexpected resuly: {result}')
         except Exception as ee:
             logger.critical(f'Task read_results failed: {ee}')
 
