@@ -157,7 +157,7 @@ class TonLib:
             result = json.loads(result.decode('utf-8'))
         return result
 
-    def execute(self, query, timeout=10):
+    def execute(self, query, timeout=100):
         if not self._is_working:
             raise RuntimeError(f"TonLib failed with state: {self._state}")
 
