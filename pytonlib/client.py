@@ -25,7 +25,8 @@ class TonlibClient:
                  keystore,
                  loop,
                  cdll_path=None,
-                 verbosity_level=0):
+                 verbosity_level=0,
+                 tonlib_timeout=10):
         if not os.access(keystore, os.F_OK):
             raise FileNotFoundError(f'Keystore directory {keystore} does not exist')
         if not os.access(keystore, os.W_OK | os.R_OK | os.X_OK):
@@ -38,6 +39,7 @@ class TonlibClient:
         self.loop = loop
         self.verbosity_level = verbosity_level
         self.tonlib_wrapper = None
+        self.tonlib_timeout = tonlib_timeout
 
     @property
     def local_config(self):
@@ -104,6 +106,12 @@ class TonlibClient:
     def __await__(self):
         return self.init().__await__()
 
+    async def sync_tonlib(self):
+        request = {
+            '@type': 'sync'
+        }
+        return await self.tonlib_wrapper.execute(request, timeout=30)
+
     # tonlib methods
     async def raw_get_transactions(self, account_address: str, from_transaction_lt: str, from_transaction_hash: str, *args, **kwargs):
         """
@@ -149,7 +157,7 @@ class TonlibClient:
                 'hash': from_transaction_hash
             }
         }
-        return await self.tonlib_wrapper.execute(request)
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
     async def raw_get_account_state(self, address: str, *args, **kwargs):
         """
@@ -176,7 +184,7 @@ class TonlibClient:
             }
         }
 
-        return await self.tonlib_wrapper.execute(request)
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
     async def generic_get_account_state(self, address: str, *args, **kwargs):
         # TODO: understand why this is not used
@@ -187,7 +195,7 @@ class TonlibClient:
                 'account_address': address
             }
         }
-        return await self.tonlib_wrapper.execute(request)
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
     async def _load_contract(self, address, *args, **kwargs):
         # TODO: understand why this is not used
@@ -198,7 +206,7 @@ class TonlibClient:
                 'account_address': address
             }
         }
-        result = await self.tonlib_wrapper.execute(request)
+        result = await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
         return result["id"]
 
     async def raw_run_method(self, address, method, stack_data, output_layout=None, *args, **kwargs):
@@ -237,7 +245,7 @@ class TonlibClient:
             'method': method,
             'stack': stack_data
         }
-        r = await self.tonlib_wrapper.execute(request)
+        r = await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
         if 'stack' in r:
             r['stack'] = serialize_tvm_stack(r['stack'])
         return r
@@ -253,7 +261,7 @@ class TonlibClient:
             '@type': 'raw.sendMessage',
             'body': serialized_boc
         }
-        return await self.tonlib_wrapper.execute(request)
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
     
     async def raw_send_message_return_hash(self, serialized_boc, *args, **kwargs):
         serialized_boc = codecs.decode(codecs.encode(serialized_boc, "base64"), 'utf-8').replace("\n", '')
@@ -261,7 +269,7 @@ class TonlibClient:
             '@type': 'raw.sendMessageReturnHash',
             'body': serialized_boc
         }
-        return await self.tonlib_wrapper.execute(request)
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
     async def _raw_create_query(self, destination, body, init_code=b'', init_data=b'', *args, **kwargs):
         """
@@ -286,7 +294,7 @@ class TonlibClient:
                 'account_address': destination
             }
         }
-        return await self.tonlib_wrapper.execute(request)
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
     async def _raw_send_query(self, query_info, *args, **kwargs):
         """
@@ -296,7 +304,7 @@ class TonlibClient:
             '@type': 'query.send',
             'id': query_info['id']
         }
-        return await self.tonlib_wrapper.execute(request)
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
     async def raw_create_and_send_query(self, destination, body, init_code=b'', init_data=b'', *args, **kwargs):
         query_info = await self._raw_create_query(destination, body, init_code, init_data)
@@ -321,7 +329,7 @@ class TonlibClient:
             'initial_account_state': initial_account_state,
             'data': body
         }
-        return await self.tonlib_wrapper.execute(request)
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
     async def raw_estimate_fees(self, destination, body, init_code=b'', init_data=b'', ignore_chksig=True, *args, **kwargs):
         query_info = await self._raw_create_query(destination, body, init_code, init_data)
@@ -330,7 +338,7 @@ class TonlibClient:
             'id': query_info['id'],
             'ignore_chksig': ignore_chksig
         }
-        return await self.tonlib_wrapper.execute(request)
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
     async def raw_get_block_transactions(self, fullblock, count, after_tx, *args, **kwargs):
         request = {
@@ -340,7 +348,7 @@ class TonlibClient:
             'count': count,
             'after': after_tx
         }
-        return await self.tonlib_wrapper.execute(request)
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
     async def raw_get_block_transactions_ext(self, fullblock, count, after_tx, *args, **kwargs):
         request = {
@@ -350,7 +358,7 @@ class TonlibClient:
             'count': count,
             'after': after_tx
         }
-        return await self.tonlib_wrapper.execute(request)
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
     async def get_transactions(self, account,
                                from_transaction_lt=None,
@@ -453,7 +461,7 @@ class TonlibClient:
         request = {
             '@type': 'blocks.getMasterchainInfo'
         }
-        result = await self.tonlib_wrapper.execute(request)
+        result = await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
         return result
 
     async def lookup_block(self, workchain, shard, seqno=None, lt=None, unixtime=None, *args, **kwargs):
@@ -477,7 +485,7 @@ class TonlibClient:
             'lt': lt,
             'utime': unixtime
         }
-        return await self.tonlib_wrapper.execute(request)
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
     async def get_shards(self, master_seqno=None, lt=None, unixtime=None, *args, **kwargs):
         assert (master_seqno is not None) or (lt is not None) or (unixtime is not None), "Seqno, LT or unixtime should be defined"
@@ -487,7 +495,7 @@ class TonlibClient:
             '@type': 'blocks.getShards',
             'id': fullblock
         }
-        return await self.tonlib_wrapper.execute(request)
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
     async def get_block_transactions(self, workchain, shard, seqno, count, root_hash=None, file_hash=None, after_lt=None, after_hash=None, *args, **kwargs):
         if root_hash and file_hash:
@@ -606,7 +614,7 @@ class TonlibClient:
             '@type': 'blocks.getBlockHeader',
             'id': fullblock
         }
-        return await self.tonlib_wrapper.execute(request)
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
     async def get_config_param(self, config_id: int, seqno: int, *args, **kwargs):
         wc, shard = -1, -9223372036854775808
@@ -618,7 +626,7 @@ class TonlibClient:
             'mode': 0
         }
 
-        return await self.tonlib_wrapper.execute(request)
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
     async def try_locate_tx_by_incoming_message(self, source, destination, creation_lt, *args, **kwargs):
         src = detect_address(source)
