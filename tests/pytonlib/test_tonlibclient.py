@@ -21,7 +21,7 @@ def ton_keystore():
 
 @pytest.fixture
 def ls_index():
-    return 2
+    return 3
 
 
 @pytest_asyncio.fixture
@@ -32,7 +32,8 @@ async def tonlib_client(tonlib_config, ton_keystore, ls_index):
                           config=tonlib_config,
                           keystore=ton_keystore,
                           loop=loop,
-                          verbosity_level=0)
+                          verbosity_level=0,
+                          tonlib_timeout=30)
     await client.init()
     return client
 
@@ -44,6 +45,19 @@ async def test_get_masterchain_info(tonlib_client: TonlibClient):
     try:
         res = await tonlib_client.get_masterchain_info()
         assert res['@type'] == 'blocks.masterchainInfo'
+    except Exception as ee:
+        exception = ee
+    finally:    
+        await tonlib_client.close()
+    assert exception is None
+
+
+@pytest.mark.asyncio
+async def test_sync_tonlib_method(tonlib_client: TonlibClient):
+    exception = None
+    try:
+        res = await tonlib_client.sync_tonlib()
+        assert res['@type'] == 'ton.blockIdExt'
     except Exception as ee:
         exception = ee
     finally:    
