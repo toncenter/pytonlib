@@ -464,6 +464,13 @@ class TonlibClient:
         result = await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
         return result
 
+    async def get_masterchain_block_signatures(self, seqno: int, *args, **kwargs):
+        request = {
+            '@type': 'blocks.getMasterchainBlockSignatures',
+            'seqno': seqno
+        }
+        return await self.tonlib_wrapper.execute(request)
+
     async def lookup_block(self, workchain, shard, seqno=None, lt=None, unixtime=None, *args, **kwargs):
         assert (seqno is not None) or (lt is not None) or (unixtime is not None), "Seqno, LT or unixtime should be defined"
         mode = 0
