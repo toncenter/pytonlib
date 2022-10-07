@@ -47,7 +47,7 @@ from pytonlib import TonlibClient
 ton_config = requests.get('https://ton-blockchain.github.io/global.config.json').json()
 
 # get running event loop
-loop = asyncio.get_running_loop()
+loop = asyncio.get_event_loop()
 
 # create keystore directory for tonlib
 keystore_dir = '/tmp/ton_keystore'
