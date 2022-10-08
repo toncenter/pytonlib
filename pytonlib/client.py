@@ -396,6 +396,7 @@ class TonlibClient:
                                from_transaction_hash=None,
                                to_transaction_lt=0,
                                limit=10,
+                               decode_messages=True,
                                *args, **kwargs):
         """
          Return all transactions between from_transaction_lt and to_transaction_lt
@@ -434,10 +435,10 @@ class TonlibClient:
         all_transactions = all_transactions[:limit]
         for t in all_transactions:
             if "in_msg" in t:
-                t["in_msg"] = self._process_raw_message(t["in_msg"], True)
+                t["in_msg"] = self._process_raw_message(t["in_msg"], decode_messages)
             if "out_msgs" in t:
                 for o in t["out_msgs"]:
-                    o = self._process_raw_message(o, True)
+                    o = self._process_raw_message(o, decode_messages)
         return all_transactions
 
     async def get_masterchain_info(self, *args, **kwargs):
