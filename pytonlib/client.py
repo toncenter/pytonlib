@@ -23,7 +23,7 @@ class TonlibClient:
                  ls_index,
                  config,
                  keystore,
-                 loop,
+                 loop=None,
                  cdll_path=None,
                  verbosity_level=0,
                  tonlib_timeout=10):
@@ -61,8 +61,9 @@ class TonlibClient:
         :param key: base64 pub key of liteserver node
         :return: None
         """
-        if self.tonlib_wrapper is None:            
-            wrapper = TonLib(self.loop, self.ls_index, self.cdll_path, self.verbosity_level)
+        if self.tonlib_wrapper is None:
+            event_loop = self.loop or asyncio.get_running_loop()
+            wrapper = TonLib(event_loop, self.ls_index, self.cdll_path, self.verbosity_level)
             keystore_obj = {
                 '@type': 'keyStoreTypeDirectory',
                 'directory': self.keystore

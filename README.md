@@ -46,9 +46,6 @@ from pytonlib import TonlibClient
 # downloading mainnet config
 ton_config = requests.get('https://ton-blockchain.github.io/global.config.json').json()
 
-# get running event loop
-loop = asyncio.get_running_loop()
-
 # create keystore directory for tonlib
 keystore_dir = '/tmp/ton_keystore'
 Path(keystore_dir).mkdir(parents=True, exist_ok=True)
@@ -56,8 +53,7 @@ Path(keystore_dir).mkdir(parents=True, exist_ok=True)
 # init TonlibClient
 client = TonlibClient(ls_index=0, # choose LiteServer index to connect
                       config=ton_config,
-                      keystore=keystore_dir,
-                      loop=loop)
+                      keystore=keystore_dir)
 
 # init tonlibjson
 await client.init()
