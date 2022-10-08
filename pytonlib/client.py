@@ -113,15 +113,17 @@ class TonlibClient:
         return await self.tonlib_wrapper.execute(request, timeout=30)
 
     # tonlib methods
-    async def raw_get_transactions(self, account_address: str, from_transaction_lt: str, from_transaction_hash: str, *args, **kwargs):
+    async def raw_get_transactions(self, account_address: str, from_transaction_lt: str, from_transaction_hash: str, count: int, try_decode_messages: bool, *args, **kwargs):
         """
         TL Spec:
-            raw.getTransactions account_address:accountAddress from_transaction_id:internal.transactionId = raw.Transactions;
+            raw.getTransactionsV2 private_key:InputKey account_address:accountAddress from_transaction_id:internal.transactionId count:# try_decode_messages:Bool = raw.Transactions;
             accountAddress account_address:string = AccountAddress;
             internal.transactionId lt:int64 hash:bytes = internal.TransactionId;
         :param account_address: str with raw or user friendly address
         :param from_transaction_lt: from transaction lt
         :param from_transaction_hash: from transaction hash in HEX representation
+        :param count: number of transactions to fetch
+        :param try_decode_messages: whether to decode message content or not
         :return: dict as
             {
                 '@type': 'raw.transactions',
@@ -147,7 +149,7 @@ class TonlibClient:
         from_transaction_hash = hex_to_b64str(from_transaction_hash)
 
         request = {
-            '@type': 'raw.getTransactions',
+            '@type': 'raw.getTransactionsV2',
             'account_address': {
                 'account_address': account_address,
             },
@@ -155,7 +157,9 @@ class TonlibClient:
                 '@type': 'internal.transactionId',
                 'lt': from_transaction_lt,
                 'hash': from_transaction_hash
-            }
+            },
+            'count': count,
+            'try_decode_messages': try_decode_messages
         }
         return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
@@ -175,8 +179,7 @@ class TonlibClient:
                 'sync_utime': int
             }
         """
-        account_address = prepare_address(
-            address)  # TODO: understand why this is not used
+        account_address = prepare_address(address)  # TODO: understand why this is not used
         request = {
             '@type': 'raw.getAccountState',
             'account_address': {
@@ -360,6 +363,34 @@ class TonlibClient:
         }
         return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
+    def _process_raw_message(self, message: dict, decode_message_content: bool):
+        if "source" in message:
+            message["source"] = message["source"]["account_address"]
+        if "destination" in message:
+            message["destination"] = message["destination"]["account_address"]
+        if decode_message_content:
+            op = None
+            comment = None
+            try:
+                assert message["msg_data"]["@type"] == "msg.dataRaw", "Unexpected message data type"
+                msg_body = message['msg_data']['body']
+                msg_cell_boc = codecs.decode(codecs.encode(msg_body, 'utf8'), 'base64')
+                message_cell = deserialize_boc(msg_cell_boc)
+                if len(message_cell.data.data) >= 32:
+                    op = int.from_bytes(message_cell.data.data[:32].tobytes(), 'big', signed=True)
+                    if op == 0:
+                        comment = codecs.decode(message_cell.data.data[32:], 'utf8')
+                        while len(message_cell.refs) > 0:
+                            message_cell = message_cell.refs[0]
+                            comment += codecs.decode(message_cell.data.data[32:], 'utf8')
+                        comment = comment.replace('\x00', '')
+            except BaseException as e:
+                comment = None
+                logger.error(f"Error parsing message comment and op: {e}, msg: {message}")
+            message["op"] = op
+            message["comment"] = comment
+        return message
+
     async def get_transactions(self, account,
                                from_transaction_lt=None,
                                from_transaction_hash=None,
@@ -372,17 +403,21 @@ class TonlibClient:
          if to_transaction_lt and to_transaction_hash are not defined returns all transactions
          if from_transaction_lt and from_transaction_hash are not defined checks last
         """
-        if from_transaction_hash:
-            from_transaction_hash = hash_to_hex(from_transaction_hash)
-        if (from_transaction_lt == None) or (from_transaction_hash == None):
+        if from_transaction_lt is None and from_transaction_hash is None:
             addr = await self.raw_get_account_state(account)
             from_transaction_lt, from_transaction_hash = int(
                 addr["last_transaction_id"]["lt"]), b64str_to_hex(addr["last_transaction_id"]["hash"])
-        reach_lt = False
+        else:
+            assert from_transaction_lt is not None and from_transaction_hash is not None, \
+                "from_transaction_hash and from_transaction_lt have to be passed together"
+            from_transaction_hash = hash_to_hex(from_transaction_hash)
+            
         all_transactions = []
-        current_lt, curret_hash = from_transaction_lt, from_transaction_hash
-        while (not reach_lt) and (len(all_transactions) < limit):
-            raw_transactions = await self.raw_get_transactions(account, current_lt, curret_hash)
+        reach_lt = False
+        current_lt, current_hash = from_transaction_lt, from_transaction_hash
+        while not reach_lt and len(all_transactions) < limit:
+            count = min(limit - len(all_transactions), 10)
+            raw_transactions = await self.raw_get_transactions(account, current_lt, current_hash, count, False)
             transactions, next = raw_transactions['transactions'], raw_transactions.get("previous_transaction_id")
             for t in transactions:
                 tlt = int(t['transaction_id']['lt'])
@@ -391,8 +426,7 @@ class TonlibClient:
                     break
                 all_transactions.append(t)
             if next:
-                current_lt, curret_hash = int(
-                    next["lt"]), b64str_to_hex(next["hash"])
+                current_lt, current_hash = int(next["lt"]), b64str_to_hex(next["hash"])
             else:
                 break
             if current_lt == 0:
@@ -400,61 +434,11 @@ class TonlibClient:
 
         all_transactions = all_transactions[:limit]
         for t in all_transactions:
-            try:
-                if "in_msg" in t:
-                    if "source" in t["in_msg"]:
-                        t["in_msg"]["source"] = t["in_msg"]["source"]["account_address"]
-                    if "destination" in t["in_msg"]:
-                        t["in_msg"]["destination"] = t["in_msg"]["destination"]["account_address"]
-                    if decode_messages:
-                        try:
-                            if "msg_data" in t["in_msg"]:
-                                dcd = ""
-                                if t["in_msg"]["msg_data"]["@type"] == "msg.dataRaw":
-                                    msg_cell_boc = codecs.decode(codecs.encode(
-                                        t["in_msg"]["msg_data"]["body"], 'utf8'), 'base64')
-                                    message_cell = deserialize_boc(msg_cell_boc)
-                                    dcd = message_cell.data.data.tobytes()
-                                    t["in_msg"]["message"] = codecs.decode(
-                                        codecs.encode(dcd, 'base64'), "utf8")
-                                elif t["in_msg"]["msg_data"]["@type"] == "msg.dataText":
-                                    dcd = codecs.encode(
-                                        t["in_msg"]["msg_data"]["text"], 'utf8')
-                                    t["in_msg"]["message"] = codecs.decode(
-                                        codecs.decode(dcd, 'base64'), "utf8")
-                        except Exception as e:
-                            t["in_msg"]["message"] = ""
-                            logger.warning(
-                                f"in_msg message decoding exception: {e}")
-                if "out_msgs" in t:
-                    for o in t["out_msgs"]:
-                        if "source" in o:
-                            o["source"] = o["source"]["account_address"]
-                        if "destination" in o:
-                            o["destination"] = o["destination"]["account_address"]
-                        if decode_messages:
-                            try:
-                                if "msg_data" in o:
-                                    dcd = ""
-                                    if o["msg_data"]["@type"] == "msg.dataRaw":
-                                        msg_cell_boc = codecs.decode(codecs.encode(
-                                            o["msg_data"]["body"], 'utf8'), 'base64')
-                                        message_cell = deserialize_boc(
-                                            msg_cell_boc)
-                                        dcd = message_cell.data.data.tobytes()
-                                        o["message"] = codecs.decode(
-                                            codecs.encode(dcd, 'base64'), "utf8")
-                                    elif o["msg_data"]["@type"] == "msg.dataText":
-                                        dcd = codecs.encode(
-                                            o["msg_data"]["text"], 'utf8')
-                                        o["message"] = codecs.decode(
-                                            codecs.decode(dcd, 'base64'), "utf8")
-                            except Exception as e:
-                                o["message"] = ""
-                                logger.warning(
-                                    f"out_msg message decoding exception: {e}")
-            except Exception as e:
-                logger.error(f"getTransaction exception: {e}")
+            if "in_msg" in t:
+                t["in_msg"] = self._process_raw_message(t["in_msg"], decode_messages)
+            if "out_msgs" in t:
+                for o in t["out_msgs"]:
+                    o = self._process_raw_message(o, decode_messages)
         return all_transactions
 
     async def get_masterchain_info(self, *args, **kwargs):
@@ -662,16 +646,13 @@ class TonlibClient:
                     txses = await self.get_transactions(destination,
                                                         from_transaction_lt=candidate[1],
                                                         from_transaction_hash=b64str_to_hex(candidate[0]),
-                                                        limit=max(count, 10))
+                                                        limit=count)
                     for tx in txses:
-                        try:
-                            in_msg = tx["in_msg"]
-                            tx_source = in_msg["source"]
-                            if len(tx_source) and detect_address(tx_source)["raw_form"] == src["raw_form"]:
-                                if int(in_msg["created_lt"]) == int(creation_lt):
-                                    return tx
-                        except KeyError:
-                            pass
+                        in_msg = tx["in_msg"]
+                        tx_source = in_msg["source"]
+                        if len(tx_source) and detect_address(tx_source)["raw_form"] == src["raw_form"]:
+                            if int(in_msg["created_lt"]) == int(creation_lt):
+                                return tx
         raise Exception("Tx not found")
 
     async def try_locate_tx_by_outcoming_message(self, source, destination, creation_lt, *args, **kwargs):
@@ -700,13 +681,10 @@ class TonlibClient:
                 txses = await self.get_transactions(source,
                                                     from_transaction_lt=candidate[1],
                                                     from_transaction_hash=b64str_to_hex(candidate[0]),
-                                                    limit=max(count, 10))
+                                                    limit=count)
                 for tx in txses:
-                    try:
-                        for msg in tx["out_msgs"]:
-                            if detect_address(msg["destination"])["raw_form"] == dest["raw_form"]:
-                                if int(msg["created_lt"]) == int(creation_lt):
-                                    return tx
-                    except KeyError:
-                        pass
+                    for msg in tx["out_msgs"]:
+                        if detect_address(msg["destination"])["raw_form"] == dest["raw_form"]:
+                            if int(msg["created_lt"]) == int(creation_lt):
+                                return tx
         raise Exception("Tx not found")
