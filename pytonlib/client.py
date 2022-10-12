@@ -456,6 +456,24 @@ class TonlibClient:
         }
         return await self.tonlib_wrapper.execute(request)
 
+    async def get_shard_block_proof(self, workchain: int, shard: int, seqno: int, from_seqno=None, *args, **kwargs):
+        block_id = await self.lookup_block(workchain, shard, seqno)
+        mode = 0
+        if from_seqno is not None:
+            mode = 1
+            wc, shard = -1, -9223372036854775808
+            from_block_id = await self.lookup_block(wc, shard, from_seqno)
+
+        request = {
+            '@type': 'blocks.getShardBlockProof',
+            'mode': mode,
+            'id': block_id
+        }
+        if mode == 1:
+            request['from'] = from_block_id
+
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
+
     async def lookup_block(self, workchain, shard, seqno=None, lt=None, unixtime=None, *args, **kwargs):
         assert (seqno is not None) or (lt is not None) or (unixtime is not None), "Seqno, LT or unixtime should be defined"
         mode = 0
