@@ -383,13 +383,13 @@ class TonlibClient:
                         comment = codecs.decode(message_cell.data.data[32:], 'utf8')
                         while len(message_cell.refs) > 0:
                             message_cell = message_cell.refs[0]
-                            comment += codecs.decode(message_cell.data.data[32:], 'utf8')
+                            comment += codecs.decode(message_cell.data.data, 'utf8')
                         comment = comment.replace('\x00', '')
             except BaseException as e:
                 comment = None
                 logger.error(f"Error parsing message comment and op: {e}, msg: {message}")
             message["op"] = op
-            message["comment"] = comment
+            message["message"] = comment
         return message
 
     async def get_transactions(self, account,
