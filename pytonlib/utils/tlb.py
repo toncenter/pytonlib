@@ -1,9 +1,11 @@
 from tvm_valuetypes.cell import deserialize_boc, Cell
+from tvm_valuetypes.dict_utils import parse_hashmap
 import codecs
 from bitarray import bitarray
 from bitarray.util import ba2int, ba2hex
 import math
 import json
+from hashlib import sha256
 
 class Slice:
     def __init__(self, cell: Cell):
@@ -382,3 +384,113 @@ def parse_transaction(b64_tx_data: str) -> dict:
     cell_slice.raise_if_not_empty()
 
     return json.loads(json.dumps(tx, default=lambda o: o.__dict__))
+
+class MsgAddressInt:
+    """
+    anycast_info$_ depth:(#<= 30) { depth >= 1 }
+        rewrite_pfx:(bits depth) = Anycast;
+    addr_std$10 anycast:(Maybe Anycast) 
+        workchain_id:int8 address:bits256  = MsgAddressInt;
+    addr_var$11 anycast:(Maybe Anycast) addr_len:(## 9) 
+        workchain_id:int32 address:(bits addr_len) = MsgAddressInt;
+    """
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(2)
+        if prefix == bitarray('10'):
+            self.type = 'addr_std'
+        elif prefix == bitarray('11'):
+            self.type = 'addr_var'
+        else:
+            raise ValueError(f'MsgAddressInt must have prefix 10 or 11 (but has {prefix})')
+
+        if cell_slice.read_next(1).any():
+            raise NotImplementedError('Anycast not supported yet')
+
+        if self.type == 'addr_std':
+            self.workchain_id = ba2int(cell_slice.read_next(8), signed=True)
+            self.address = ba2hex(cell_slice.read_next(256))
+        else:
+            addr_len = ba2int(cell_slice.read_next(6), signed=False)
+            self.workchain_id = ba2int(cell_slice.read_next(32), signed=True)
+            self.address = ba2hex(cell_slice.read_next(addr_len))
+
+class TokenData:
+    attributes = ['uri', 'name', 'description', 'image', 'image_data', 'symbol', 'decimals']
+    attributes_hashes = {}
+    for attr in attributes:
+        attributes_hashes[sha256(attr.encode('utf-8')).hexdigest()] = attr
+
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(8)
+        if prefix == bitarray('00000000'):
+            self.type = 'onchain'
+            if cell_slice.read_next(1).any():
+                child_slice = cell_slice.read_next_ref()
+                hashmap_cell = Cell()
+                hashmap_cell.data.data = child_slice._data
+                hashmap_cell.refs = child_slice._refs
+                hashmap = {}
+                parse_hashmap(hashmap_cell, 256, hashmap, bitarray())
+                self.data = self._parse_attributes(hashmap)
+            else:
+                self.data = {}
+        elif prefix == bitarray('00000001'):
+            self.type = 'offchain'
+            data = cell_slice.read_next(cell_slice.bits_left())
+            while cell_slice.refs_left() > 0:
+                cell_slice = cell_slice.read_next_ref()
+                data += cell_slice.read_next(cell_slice.bits_left())
+            print(data.tobytes())
+            self.data = data.tobytes().decode('ascii')
+        else:
+            raise ValueError('Unexpected content prefix')
+    
+    def _parse_attributes(self, hashmap: dict):
+        res = {}
+        for attr_hash_bitstr, value_cell in hashmap.items():
+            attr_hash_hex = ba2hex(bitarray(attr_hash_bitstr))
+            attr_name = TokenData.attributes_hashes.get(attr_hash_hex)
+            if attr_name is None:
+                attr_name = attr_hash_hex
+            res[attr_name] = self._parse_content_data(value_cell)
+        return res
+
+    def _parse_content_data(self, cell: Cell, encoding='utf-8'):
+        assert cell.data.data == bitarray()
+        cell_slice = Slice(cell.refs[0])
+        prefix = cell_slice.read_next(8)
+        if prefix == bitarray('00000000'):
+            #snake
+            data = cell_slice.read_next(cell_slice.bits_left())
+            while cell_slice.refs_left() > 0:
+                cell_slice = cell_slice.read_next_ref()
+                data += cell_slice.read_next(cell_slice.bits_left())
+            return data.tobytes().decode(encoding)
+        elif prefix == bitarray('00000001'):
+            #chunks
+            data = bitarray()
+            if cell_slice.read_next(1).any():
+                child_slice = cell_slice.read_next_ref()
+                hashmap_cell = Cell()
+                hashmap_cell.data.data = child_slice._data
+                hashmap_cell.refs = child_slice._refs
+                hashmap = {}
+                parse_hashmap(hashmap_cell, 32, hashmap, bitarray())
+                for ind in range(len(hashmap)):
+                    ind_bitstr = f'{ind:032b}'
+                    chunk_cell = hashmap[ind_bitstr]
+                    assert chunk_cell.data.data == bitarray()
+                    assert len(chunk_cell.refs) == 1
+                    data += chunk_cell.refs[0].data.data
+        else:
+            raise ValueError(f'Unexpected content data prefix: {prefix}')
+        return data.tobytes().decode(encoding)
+
+
+def parse_tlb_object(b64_boc: str, tlb_type):
+    boc = codecs.decode(codecs.encode(b64_boc, 'utf-8'), 'base64')
+    cell = deserialize_boc(boc)
+    cell_slice = Slice(cell)
+    object = tlb_type(cell_slice)
+    cell_slice.raise_if_not_empty()
+    return json.loads(json.dumps(object, default=lambda o: o.__dict__))
