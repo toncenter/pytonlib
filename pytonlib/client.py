@@ -762,7 +762,7 @@ class TonlibClient:
             result = parse_nft_collection_data(get_method_result_stack)
         elif contract_type == 'nft_item':
             result = parse_nft_item_data(get_method_result_stack)
-            if result['collection_address'] != 'EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c':
+            if result['collection_address'] is not None:
                 individual_content = result.pop('individual_content')
                 get_nft_content_request_stack = [['num', result['index']], ['tvm.Cell', individual_content]]
                 content_raw = await self.raw_run_method(prepare_address(result['collection_address']), 'get_nft_content', get_nft_content_request_stack)
