@@ -14,6 +14,9 @@ class Slice:
         self._refs = cell.refs
         self._refs_offset = 0
         
+    def prefetch_next(self, bits_count: int):
+        return self._data[self._data_offset : self._data_offset + bits_count]
+
     def read_next(self, bits_count: int):
         result = self._data[self._data_offset : self._data_offset + bits_count]
         self._data_offset += bits_count
@@ -385,6 +388,28 @@ def parse_transaction(b64_tx_data: str) -> dict:
 
     return json.loads(json.dumps(tx, default=lambda o: o.__dict__))
 
+class MsgAddress:
+    def parse(cell_slice):
+        prefix = cell_slice.prefetch_next(2)
+        if prefix == bitarray('00') or prefix == bitarray('01'):
+            return MsgAddressExt(cell_slice)
+        else:
+            return MsgAddressInt(cell_slice)
+
+class MsgAddressExt:
+    """
+    addr_none$00 = MsgAddressExt;
+    addr_extern$01 len:(## 9) external_address:(bits len) 
+                = MsgAddressExt;
+    """
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(2)
+        if prefix == bitarray('00'):
+            self.type = 'addr_none'
+        elif prefix == bitarray('01'):
+            self.type = 'addr_extern'
+            cell_slice.read_next(cell_slice.bits_left()) #TODO: parse len and external_address
+
 class MsgAddressInt:
     """
     anycast_info$_ depth:(#<= 30) { depth >= 1 }
@@ -491,6 +516,10 @@ def parse_tlb_object(b64_boc: str, tlb_type):
     boc = codecs.decode(codecs.encode(b64_boc, 'utf-8'), 'base64')
     cell = deserialize_boc(boc)
     cell_slice = Slice(cell)
-    object = tlb_type(cell_slice)
+    parse_cons = getattr(tlb_type, "parse", None)
+    if callable(parse_cons):
+        object = parse_cons(cell_slice)
+    else:
+        object = tlb_type(cell_slice)
     cell_slice.raise_if_not_empty()
     return json.loads(json.dumps(object, default=lambda o: o.__dict__))

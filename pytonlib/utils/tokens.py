@@ -1,4 +1,4 @@
-from pytonlib.utils.tlb import parse_tlb_object, MsgAddressInt, TokenData
+from pytonlib.utils.tlb import parse_tlb_object, MsgAddress, MsgAddressInt, TokenData
 from pytonlib.utils.address import detect_address
 
 def read_stack_num(entry: list):
@@ -41,29 +41,44 @@ def parse_jetton_wallet_data(stack: list):
 def parse_nft_collection_data(stack: list):
     next_item_index = read_stack_num(stack[0])
     collection_content = parse_tlb_object(read_stack_cell(stack[1]), TokenData)
-    owner_address = parse_tlb_object(read_stack_cell(stack[2]), MsgAddressInt)
-    owner_address = detect_address(f"{owner_address['workchain_id']}:{owner_address['address']}")['bounceable']['b64url']
+    owner_address = parse_tlb_object(read_stack_cell(stack[2]), MsgAddress)
+    if owner_address['type'] == 'addr_std':
+        owner_address_friendly = detect_address(f"{owner_address['workchain_id']}:{owner_address['address']}")['bounceable']['b64url']
+    else:
+        raise NotImplementedError('Owner address not supported')
     return {
         'next_item_index': next_item_index,
         'collection_content': collection_content,
-        'owner_address': owner_address
+        'owner_address': owner_address_friendly
     }
 
 def parse_nft_item_data(stack: list):
     init = bool(read_stack_num(stack[0]))
     index = read_stack_num(stack[1])
-    collection_address = parse_tlb_object(read_stack_cell(stack[2]), MsgAddressInt)
-    collection_address = detect_address(f"{collection_address['workchain_id']}:{collection_address['address']}")['bounceable']['b64url']
-    owner_address = parse_tlb_object(read_stack_cell(stack[3]), MsgAddressInt)
-    owner_address = detect_address(f"{owner_address['workchain_id']}:{owner_address['address']}")['bounceable']['b64url']
-    if collection_address == 'EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c':
+
+    collection_address = parse_tlb_object(read_stack_cell(stack[2]), MsgAddress)
+    if collection_address['type'] == 'addr_std':
+        collection_address_friendly = detect_address(f"{collection_address['workchain_id']}:{collection_address['address']}")['bounceable']['b64url']
+    elif collection_address['type'] == 'addr_none':
+        collection_address_friendly = None
+    else:
+        raise NotImplementedError('Collection address not supported')
+
+    owner_address = parse_tlb_object(read_stack_cell(stack[3]), MsgAddress)
+    if owner_address['type'] == 'addr_std':
+        owner_address_friendly = detect_address(f"{owner_address['workchain_id']}:{owner_address['address']}")['bounceable']['b64url']
+    else:
+        raise NotImplementedError('Owner address not supported')
+
+    if collection_address['type'] == 'addr_none':
         individual_content = parse_tlb_object(read_stack_cell(stack[4]), TokenData)
     else:
         individual_content = read_stack_cell(stack[4])
     return {
         'init': init,
         'index': index,
-        'collection_address': collection_address,
+        'owner_address': owner_address_friendly,
+        'collection_address': collection_address_friendly,
         'individual_content': individual_content
     }
 
