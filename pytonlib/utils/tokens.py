@@ -44,6 +44,8 @@ def parse_nft_collection_data(stack: list):
     owner_address = parse_tlb_object(read_stack_cell(stack[2]), MsgAddress)
     if owner_address['type'] == 'addr_std':
         owner_address_friendly = detect_address(f"{owner_address['workchain_id']}:{owner_address['address']}")['bounceable']['b64url']
+    elif owner_address['type'] == 'addr_none':
+        owner_address_friendly = None
     else:
         raise NotImplementedError('Owner address not supported')
     return {
@@ -67,6 +69,8 @@ def parse_nft_item_data(stack: list):
     owner_address = parse_tlb_object(read_stack_cell(stack[3]), MsgAddress)
     if owner_address['type'] == 'addr_std':
         owner_address_friendly = detect_address(f"{owner_address['workchain_id']}:{owner_address['address']}")['bounceable']['b64url']
+    elif owner_address['type'] == 'addr_none':
+        owner_address_friendly = None
     else:
         raise NotImplementedError('Owner address not supported')
 
