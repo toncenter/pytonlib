@@ -465,7 +465,6 @@ class TokenData:
             while cell_slice.refs_left() > 0:
                 cell_slice = cell_slice.read_next_ref()
                 data += cell_slice.read_next(cell_slice.bits_left())
-            print(data.tobytes())
             self.data = data.tobytes().decode('ascii')
         else:
             raise ValueError('Unexpected content prefix')
