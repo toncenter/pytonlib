@@ -8,6 +8,8 @@ import os
 from pytonlib.tonlibjson import TonLib
 from pytonlib.utils.address import prepare_address, detect_address
 from pytonlib.utils.common import b64str_to_hex, hex_to_b64str, hash_to_hex
+from pytonlib.utils.tokens import (parse_jetton_master_data, parse_jetton_wallet_data, 
+    parse_nft_collection_data, parse_nft_item_data, parse_nft_content)
 
 from tvm_valuetypes import serialize_tvm_stack, render_tvm_stack, deserialize_boc
 
@@ -729,3 +731,44 @@ class TonlibClient:
                     except KeyError:
                         pass
         raise Exception("Tx not found")
+
+    async def get_token_data(self, address: str):
+        address = prepare_address(address)
+
+        types_methods = {
+            'jetton_master': 'get_jetton_data', 
+            'jetton_wallet': 'get_wallet_data', 
+            'nft_collection': 'get_collection_data', 
+            'nft_item': 'get_nft_data'
+        }
+        get_method_results = await asyncio.gather(*[self.raw_run_method(address, t, []) for t in types_methods.values()])
+
+        contract_type = None
+        get_method_result_stack = None
+        for i, type in enumerate(types_methods.keys()):
+            if get_method_results[i]['exit_code'] == 0:
+                contract_type = type
+                get_method_result_stack = get_method_results[i]['stack']
+
+        if contract_type is None or get_method_result_stack is None:
+            raise Exception("Smart contract is not Jetton or NFT")
+        
+        result = None
+        if contract_type == 'jetton_master':
+            result = parse_jetton_master_data(get_method_result_stack)
+        elif contract_type == 'jetton_wallet':
+            result = parse_jetton_wallet_data(get_method_result_stack)
+        elif contract_type == 'nft_collection':
+            result = parse_nft_collection_data(get_method_result_stack)
+        elif contract_type == 'nft_item':
+            result = parse_nft_item_data(get_method_result_stack)
+            if result['collection_address'] != 'EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c':
+                individual_content = result.pop('individual_content')
+                get_nft_content_request_stack = [['num', result['index']], ['tvm.Cell', individual_content]]
+                content_raw = await self.raw_run_method(prepare_address(result['collection_address']), 'get_nft_content', get_nft_content_request_stack)
+                content = parse_nft_content(content_raw['stack'])
+            else:
+                content = result.pop('individual_content')
+            result['content'] = content
+        result['contract_type'] = contract_type
+        return result
