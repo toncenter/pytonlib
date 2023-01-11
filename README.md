@@ -44,7 +44,7 @@ from pytonlib import TonlibClient
 
 
 # downloading mainnet config
-ton_config = requests.get('https://ton-blockchain.github.io/global.config.json').json()
+ton_config = requests.get('https://ton.org/global.config.json').json()
 
 # create keystore directory for tonlib
 keystore_dir = '/tmp/ton_keystore'
@@ -83,7 +83,7 @@ from pytonlib import TonlibClient
 
 async def main():
     loop = asyncio.get_running_loop()
-    ton_config = requests.get('https://ton-blockchain.github.io/global.config.json').json()
+    ton_config = requests.get('https://ton.org/global.config.json').json()
 
     # create keystore directory for tonlib
     keystore_dir = '/tmp/ton_keystore'
