@@ -343,7 +343,18 @@ class AccountStatus:
             self.type = 'acc_state_active'
         elif prefix == bitarray('11'):
             self.type = 'acc_state_nonexist'
-    
+class HASH_UPDATE:
+    """
+    update_hashes#72 {X:Type} old_hash:bits256 new_hash:bits256
+      = HASH_UPDATE X;
+    """
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(8)
+        if prefix != bitarray('01110010'):
+            raise ValueError(f'HASH_UPDATE must have prefix 0x72 (but has {prefix})')
+        self.old_hash = ba2hex(cell_slice.read_next(256))
+        self.new_hash = ba2hex(cell_slice.read_next(256))
+
 class Transaction:
     """
     transaction$0111 account_addr:bits256 lt:uint64 
@@ -373,7 +384,9 @@ class Transaction:
         
         self.total_fees = CurrencyCollection(cell_slice)
         
-        state_update = cell_slice.read_next_ref() # TODO: parse state update
+        state_update_cell_slice = cell_slice.read_next_ref() # TODO: parse state update
+        self.state_update = HASH_UPDATE(state_update_cell_slice)
+        state_update_cell_slice.raise_if_not_empty()
         
         description_cell_slice = cell_slice.read_next_ref()
         self.description = TransactionDescr(description_cell_slice)
