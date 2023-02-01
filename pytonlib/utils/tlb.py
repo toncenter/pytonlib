@@ -2,7 +2,7 @@ from tvm_valuetypes.cell import deserialize_boc, Cell
 from tvm_valuetypes.dict_utils import parse_hashmap
 import codecs
 from bitarray import bitarray
-from bitarray.util import ba2int, ba2hex
+from bitarray.util import ba2int, ba2hex, hex2ba
 import math
 import json
 from hashlib import sha256
@@ -522,6 +522,22 @@ class TokenData:
         else:
             raise ValueError(f'Unexpected content data prefix: {prefix}')
         return data.tobytes().decode(encoding)
+
+class NftTransferMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(32)
+        if prefix != hex2ba('5fcc3d14'):
+            raise ValueError('Unexpected content prefix')
+        self.query_id = ba2int(cell_slice.read_next(64), signed=False)
+        self.new_owner = MsgAddress.parse(cell_slice)
+        self.response_destination = MsgAddress.parse(cell_slice)
+        if cell_slice.read_next(1).any():
+            cell_slice.read_next_ref() #TODO: read custom_payload
+        self.forward_amount = cell_slice.read_var_uint(16)
+        if cell_slice.read_next(1).any():  #TODO: read forward_payload
+            cell_slice.read_next_ref()
+        else:
+            cell_slice.read_next(cell_slice.bits_left())
 
 
 def parse_tlb_object(b64_boc: str, tlb_type):
