@@ -611,7 +611,7 @@ class NftReportStaticDataMessage:
 class JettonTransferMessage:
     def __init__(self, cell_slice):
         prefix = cell_slice.read_next(32)
-        if prefix != hex2ba('f8a7ea5'):
+        if prefix != hex2ba('0f8a7ea5'):
             raise ValueError('Unexpected content prefix')
         self.query_id = ba2int(cell_slice.read_next(64), signed=False)
         self.amount = cell_slice.read_var_uint(16)
