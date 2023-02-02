@@ -550,10 +550,9 @@ class BinaryCommentMessage:
 class CommentMessage:
     @classmethod
     def parse(cls, cell_slice: Slice):
-        prefix = cell_slice.prefetch_next(40)
-        if prefix[:32] != hex2ba('00000000'):
+        if cell_slice.prefetch_next(32) != hex2ba('00000000'):
             raise ValueError('Unexpected content prefix')
-        if prefix[32:40] == hex2ba('ff'):
+        if cell_slice.bits_left() >= 40 and cell_slice.prefetch_next(40)[32:40] == hex2ba('ff'):
             return BinaryCommentMessage(cell_slice)
         else:
             return TextCommentMessage(cell_slice)
@@ -608,6 +607,81 @@ class NftReportStaticDataMessage:
         self.query_id = ba2int(cell_slice.read_next(64), signed=False)
         self.index = ba2int(cell_slice.read_next(256), signed=False)
         self.collection = MsgAddress.parse(cell_slice)
+
+class JettonTransferMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(32)
+        if prefix != hex2ba('f8a7ea5'):
+            raise ValueError('Unexpected content prefix')
+        self.query_id = ba2int(cell_slice.read_next(64), signed=False)
+        self.amount = cell_slice.read_var_uint(16)
+        self.destination = MsgAddress.parse(cell_slice)
+        self.response_destination = MsgAddress.parse(cell_slice)
+        if cell_slice.read_next(1).any():
+            cell_slice.read_next_ref()  #TODO: read custom_payload
+        self.forward_ton_amount = cell_slice.read_var_uint(16)
+        if cell_slice.read_next(1).any():  #TODO: read forward_payload
+            cell_slice.read_next_ref()
+        else:
+            cell_slice.read_next(cell_slice.bits_left())
+
+
+class JettonTransferNotificationMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(32)
+        if prefix != hex2ba('7362d09c'):
+            raise ValueError('Unexpected content prefix')
+        self.query_id = ba2int(cell_slice.read_next(64), signed=False)
+        self.amount = cell_slice.read_var_uint(16)
+        self.sender = MsgAddress.parse(cell_slice)
+        if cell_slice.read_next(1).any():  #TODO: read forward_payload
+            cell_slice.read_next_ref()
+        else:
+            cell_slice.read_next(cell_slice.bits_left())
+
+
+class JettonExcessesMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(32)
+        if prefix != hex2ba('d53276db'):
+            raise ValueError('Unexpected content prefix')
+        self.query_id = ba2int(cell_slice.read_next(64), signed=False)
+
+class JettonBurnMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(32)
+        if prefix != hex2ba('595f07bc'):
+            raise ValueError('Unexpected content prefix')
+        self.query_id = ba2int(cell_slice.read_next(64), signed=False)
+        self.amount = cell_slice.read_var_uint(16)
+        self.response_destination = MsgAddress.parse(cell_slice)
+        if cell_slice.read_next(1).any():
+            cell_slice.read_next_ref()  #TODO: read custom_payload
+
+class JettonInternalTransferMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(32)
+        if prefix != hex2ba('178d4519'):
+            raise ValueError('Unexpected content prefix')
+        self.query_id = ba2int(cell_slice.read_next(64), signed=False)
+        self.amount = cell_slice.read_var_uint(16)
+        self.from_ = MsgAddress.parse(cell_slice)
+        self.response_address = MsgAddress.parse(cell_slice)
+        self.forward_ton_amount = cell_slice.read_var_uint(16)
+        if cell_slice.read_next(1).any():  #TODO: read forward_payload
+            cell_slice.read_next_ref()
+        else:
+            cell_slice.read_next(cell_slice.bits_left())
+
+class JettonBurnNotificationMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(32)
+        if prefix != hex2ba('8b771735'):
+            raise ValueError('Unexpected content prefix')
+        self.query_id = ba2int(cell_slice.read_next(64), signed=False)
+        self.amount = cell_slice.read_var_uint(16)
+        self.sender = MsgAddress.parse(cell_slice)
+        self.response_destination = MsgAddress.parse(cell_slice)
 
 def parse_transaction(b64_tx_data: str) -> dict:
     print("Function parse_transaction is deprecated. Please use boc_to_object")
