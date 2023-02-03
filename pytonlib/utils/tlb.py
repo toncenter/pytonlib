@@ -392,6 +392,7 @@ class Transaction:
         description_cell_slice = cell_slice.read_next_ref()
         self.description = TransactionDescr(description_cell_slice)
         description_cell_slice.raise_if_not_empty()
+
 class MsgAddress:
     def parse(cell_slice):
         prefix = cell_slice.prefetch_next(2)
@@ -679,7 +680,7 @@ class JettonInternalTransferMessage:
 class JettonBurnNotificationMessage:
     def __init__(self, cell_slice):
         prefix = cell_slice.read_next(32)
-        if prefix != hex2ba('8b771735'):
+        if prefix != hex2ba('7bdd97de'):
             raise ValueError('Unexpected content prefix')
         self.query_id = ba2int(cell_slice.read_next(64), signed=False)
         self.amount = cell_slice.read_var_uint(16)
