@@ -484,8 +484,11 @@ class TokenData:
         return res
 
     def _parse_content_data(self, cell: Cell, encoding='utf-8'):
-        assert cell.data.data == bitarray()
-        cell_slice = Slice(cell.refs[0])
+        if len(cell.data.data) > 0:
+             # TODO: Check if it complies with Token Data standard
+            cell_slice = Slice(cell)
+        else:
+            cell_slice = Slice(cell.refs[0])
         prefix = cell_slice.read_next(8)
         if prefix == bitarray('00000000'):
             #snake
