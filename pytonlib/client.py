@@ -200,16 +200,6 @@ class TonlibClient:
         }
         return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
-    async def get_shard_account_cell(self, address: str, *args, **kwargs):
-        account_address = prepare_address(address)
-        request = {
-            '@type': 'getShardAccountCell',
-            'account_address': {
-                'account_address': address
-            }
-        }
-        return await self.tonlib_wrapper.execute(request)
-
     async def _load_contract(self, address, *args, **kwargs):
         # TODO: understand why this is not used
         account_address = prepare_address(address)
