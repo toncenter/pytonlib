@@ -200,6 +200,16 @@ class TonlibClient:
         }
         return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
+    async def get_shard_account_cell(self, address: str, *args, **kwargs):
+        account_address = prepare_address(address)
+        request = {
+            '@type': 'getShardAccountCell',
+            'account_address': {
+                'account_address': address
+            }
+        }
+        return await self.tonlib_wrapper.execute(request)
+
     async def _load_contract(self, address, *args, **kwargs):
         # TODO: understand why this is not used
         account_address = prepare_address(address)
@@ -546,24 +556,28 @@ class TonlibClient:
         }
         total_result = {}
         incomplete = True
+        max_chunk_count = 256
+        left_count = count
 
-        while incomplete:
-            result = await self.raw_get_block_transactions(fullblock, count, after_tx)
+        while incomplete and left_count > 0:
+            chunk_count = min(max_chunk_count, left_count)
+            result = await self.raw_get_block_transactions(fullblock, chunk_count, after_tx)
             if not total_result:
                 total_result = result
             else:
                 total_result["transactions"] += result["transactions"]
-                total_result["incomplete"] = result["incomplete"]
             incomplete = result["incomplete"]
+            left_count -= len(result["transactions"])
             if incomplete:
                 after_tx['account'] = result["transactions"][-1]["account"]
                 after_tx['lt'] = result["transactions"][-1]["lt"]
+            
+        total_result["incomplete"] = incomplete
+        total_result["req_count"] = count
 
-        # TODO automatically check incompleteness and download all txes
         for tx in total_result["transactions"]:
             try:
-                tx["account"] = "%d:%s" % (
-                    result["id"]["workchain"], b64str_to_hex(tx["account"]))
+                tx["account"] = "%d:%s" % (result["id"]["workchain"], b64str_to_hex(tx["account"]))
             except:
                 pass
         return total_result
@@ -598,15 +612,19 @@ class TonlibClient:
         }
         total_result = {}
         incomplete = True
+        max_chunk_count = 256
+        left_count = count
 
-        while incomplete:
-            result = await self.raw_get_block_transactions_ext(fullblock, count, after_tx)
+        while incomplete and left_count > 0:
+            chunk_count = min(max_chunk_count, left_count)
+            result = await self.raw_get_block_transactions_ext(fullblock, chunk_count, after_tx)
             if not total_result:
                 total_result = result
             else:
                 total_result["transactions"] += result["transactions"]
                 total_result["incomplete"] = result["incomplete"]
             incomplete = result["incomplete"]
+            left_count -= len(result["transactions"])
             if incomplete:
                 account_friendly = result["transactions"][-1]["address"]["account_address"]
                 hex_without_workchain = detect_address(account_friendly)['raw_form'].split(':')[1]
@@ -618,8 +636,7 @@ class TonlibClient:
             try:
                 account_friendly = tx["address"]["account_address"]
                 hex_without_workchain = detect_address(account_friendly)['raw_form'].split(':')[1]
-                tx["account"] = "%d:%s" % (
-                    result["id"]["workchain"], hex_without_workchain)
+                tx["account"] = "%d:%s" % (result["id"]["workchain"], hex_without_workchain)
             except:
                 pass
         return total_result
@@ -655,6 +672,17 @@ class TonlibClient:
         }
 
         return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
+
+    async def get_config_all(self, seqno: int, *args, **kwargs):
+        wc, shard = -1, -9223372036854775808
+        # fullblock = await self.lookup_block(wc, shard, seqno)
+        request = {
+            '@type': 'getConfigAll',
+            # 'id': fullblock,
+            'mode': 0
+        }
+
+        return await self.tonlib_wrapper.execute(request)
 
     async def try_locate_tx_by_incoming_message(self, source, destination, creation_lt, *args, **kwargs):
         src = detect_address(source)
