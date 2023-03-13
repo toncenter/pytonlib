@@ -527,12 +527,11 @@ class TextCommentMessage:
             raise ValueError('Text comment cannot start with byte 0xff')
         data = cell_slice.read_next(cell_slice.bits_left()).tobytes()
         self.text_comment = codecs.decode(data, 'utf8')
-        cs_i = copy(cell_slice)
-        while cs_i.refs_left() > 0:
-            if cs_i.refs_left() > 1:
+        while cell_slice.refs_left() > 0:
+            if cell_slice.refs_left() > 1:
                 raise ValueError('Unexpected number of subcells in simple comment message')
-            cs_i = cs_i.read_next_ref()
-            data = cs_i.read_next(cs_i.bits_left()).tobytes()
+            cell_slice = cell_slice.read_next_ref()
+            data = cell_slice.read_next(cell_slice.bits_left()).tobytes()
             self.text_comment += codecs.decode(data, 'utf8')
 
         self.text_comment = self.text_comment.replace('\x00', '')
@@ -543,12 +542,11 @@ class BinaryCommentMessage:
         if prefix != hex2ba('00000000ff'):
             raise ValueError('Unexpected content prefix')
         data_ba = cell_slice.read_next(cell_slice.bits_left())
-        cs_i = copy(cell_slice)
-        while cs_i.refs_left() > 0:
-            if cs_i.refs_left() > 1:
+        while cell_slice.refs_left() > 0:
+            if cell_slice.refs_left() > 1:
                 raise ValueError('Unexpected number of subcells in binary comment message')
-            cs_i = cs_i.read_next_ref()
-            data_ba += cs_i.read_next(cs_i.bits_left())
+            cell_slice = cell_slice.read_next_ref()
+            data_ba += cell_slice.read_next(cell_slice.bits_left())
         self.hex_comment = ba2hex(data_ba)
 
 class CommentMessage:
