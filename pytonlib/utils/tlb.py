@@ -685,8 +685,8 @@ class JettonBurnNotificationMessage:
         self.sender = MsgAddress.parse(cell_slice)
         self.response_destination = MsgAddress.parse(cell_slice)
 
+# Deprecated, use boc_to_object
 def parse_transaction(b64_tx_data: str) -> dict:
-    print("Function parse_transaction is deprecated. Please use boc_to_object")
     transaction_boc = codecs.decode(codecs.encode(b64_tx_data, 'utf-8'), 'base64')
     cell = deserialize_boc(transaction_boc)
     cell_slice = Slice(cell)
@@ -695,8 +695,8 @@ def parse_transaction(b64_tx_data: str) -> dict:
 
     return json.loads(json.dumps(tx, default=lambda o: o.__dict__))
 
+# Deprecated, use boc_to_object
 def parse_tlb_object(b64_boc: str, tlb_type: type):
-    print("Function parse_tlb_object is deprecated. Please use boc_to_object")
     boc = codecs.decode(codecs.encode(b64_boc, 'utf-8'), 'base64')
     cell = deserialize_boc(boc)
     cell_slice = Slice(cell)
