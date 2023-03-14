@@ -1,8 +1,9 @@
 from tvm_valuetypes.cell import deserialize_boc, Cell
 from tvm_valuetypes.dict_utils import parse_hashmap
 import codecs
+from copy import copy
 from bitarray import bitarray
-from bitarray.util import ba2int, ba2hex
+from bitarray.util import ba2int, ba2hex, hex2ba
 import math
 import json
 from hashlib import sha256
@@ -392,15 +393,6 @@ class Transaction:
         self.description = TransactionDescr(description_cell_slice)
         description_cell_slice.raise_if_not_empty()
 
-def parse_transaction(b64_tx_data: str) -> dict:
-    transaction_boc = codecs.decode(codecs.encode(b64_tx_data, 'utf-8'), 'base64')
-    cell = deserialize_boc(transaction_boc)
-    cell_slice = Slice(cell)
-    tx = Transaction(cell_slice)
-    cell_slice.raise_if_not_empty()
-
-    return json.loads(json.dumps(tx, default=lambda o: o.__dict__))
-
 class MsgAddress:
     def parse(cell_slice):
         prefix = cell_slice.prefetch_next(2)
@@ -493,8 +485,11 @@ class TokenData:
         return res
 
     def _parse_content_data(self, cell: Cell, encoding='utf-8'):
-        assert cell.data.data == bitarray()
-        cell_slice = Slice(cell.refs[0])
+        if len(cell.data.data) > 0:
+             # TODO: Check if it complies with Token Data standard
+            cell_slice = Slice(cell)
+        else:
+            cell_slice = Slice(cell.refs[0])
         prefix = cell_slice.read_next(8)
         if prefix == bitarray('00000000'):
             #snake
@@ -523,8 +518,185 @@ class TokenData:
             raise ValueError(f'Unexpected content data prefix: {prefix}')
         return data.tobytes().decode(encoding)
 
+class TextCommentMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(32)
+        if prefix != hex2ba('00000000'):
+            raise ValueError('Unexpected content prefix')
+        if cell_slice.prefetch_next(8) == hex2ba('ff'):
+            raise ValueError('Text comment cannot start with byte 0xff')
+        data = cell_slice.read_next(cell_slice.bits_left()).tobytes()
+        self.text_comment = codecs.decode(data, 'utf8')
+        while cell_slice.refs_left() > 0:
+            if cell_slice.refs_left() > 1:
+                raise ValueError('Unexpected number of subcells in simple comment message')
+            cell_slice = cell_slice.read_next_ref()
+            data = cell_slice.read_next(cell_slice.bits_left()).tobytes()
+            self.text_comment += codecs.decode(data, 'utf8')
 
-def parse_tlb_object(b64_boc: str, tlb_type):
+        self.text_comment = self.text_comment.replace('\x00', '')
+
+class BinaryCommentMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(40)
+        if prefix != hex2ba('00000000ff'):
+            raise ValueError('Unexpected content prefix')
+        data_ba = cell_slice.read_next(cell_slice.bits_left())
+        while cell_slice.refs_left() > 0:
+            if cell_slice.refs_left() > 1:
+                raise ValueError('Unexpected number of subcells in binary comment message')
+            cell_slice = cell_slice.read_next_ref()
+            data_ba += cell_slice.read_next(cell_slice.bits_left())
+        self.hex_comment = ba2hex(data_ba)
+
+class CommentMessage:
+    @classmethod
+    def parse(cls, cell_slice: Slice):
+        if cell_slice.prefetch_next(32) != hex2ba('00000000'):
+            raise ValueError('Unexpected content prefix')
+        if cell_slice.bits_left() >= 40 and cell_slice.prefetch_next(40)[32:40] == hex2ba('ff'):
+            return BinaryCommentMessage(cell_slice)
+        else:
+            return TextCommentMessage(cell_slice)
+
+class NftTransferMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(32)
+        if prefix != hex2ba('5fcc3d14'):
+            raise ValueError('Unexpected content prefix')
+        self.query_id = ba2int(cell_slice.read_next(64), signed=False)
+        self.new_owner = MsgAddress.parse(cell_slice)
+        self.response_destination = MsgAddress.parse(cell_slice)
+        if cell_slice.read_next(1).any():
+            cell_slice.read_next_ref() #TODO: read custom_payload
+        self.forward_amount = cell_slice.read_var_uint(16)
+        if cell_slice.read_next(1).any():  #TODO: read forward_payload
+            cell_slice.read_next_ref()
+        else:
+            cell_slice.read_next(cell_slice.bits_left())
+
+class NftOwnershipAssignedMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(32)
+        if prefix != hex2ba('05138d91'):
+            raise ValueError('Unexpected content prefix')
+        self.query_id = ba2int(cell_slice.read_next(64), signed=False)
+        self.prev_owner = MsgAddress.parse(cell_slice)
+        if cell_slice.read_next(1).any():  #TODO: read forward_payload
+            cell_slice.read_next_ref()
+        else:
+            cell_slice.read_next(cell_slice.bits_left())
+
+class NftExcessesMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(32)
+        if prefix != hex2ba('d53276db'):
+            raise ValueError('Unexpected content prefix')
+        self.query_id = ba2int(cell_slice.read_next(64), signed=False)
+
+class NftGetStaticDataMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(32)
+        if prefix != hex2ba('2fcb26a2'):
+            raise ValueError('Unexpected content prefix')
+        self.query_id = ba2int(cell_slice.read_next(64), signed=False)
+
+class NftReportStaticDataMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(32)
+        if prefix != hex2ba('8b771735'):
+            raise ValueError('Unexpected content prefix')
+        self.query_id = ba2int(cell_slice.read_next(64), signed=False)
+        self.index = ba2int(cell_slice.read_next(256), signed=False)
+        self.collection = MsgAddress.parse(cell_slice)
+
+class JettonTransferMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(32)
+        if prefix != hex2ba('0f8a7ea5'):
+            raise ValueError('Unexpected content prefix')
+        self.query_id = ba2int(cell_slice.read_next(64), signed=False)
+        self.amount = cell_slice.read_var_uint(16)
+        self.destination = MsgAddress.parse(cell_slice)
+        self.response_destination = MsgAddress.parse(cell_slice)
+        if cell_slice.read_next(1).any():
+            cell_slice.read_next_ref()  #TODO: read custom_payload
+        self.forward_ton_amount = cell_slice.read_var_uint(16)
+        if cell_slice.read_next(1).any():  #TODO: read forward_payload
+            cell_slice.read_next_ref()
+        else:
+            cell_slice.read_next(cell_slice.bits_left())
+
+
+class JettonTransferNotificationMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(32)
+        if prefix != hex2ba('7362d09c'):
+            raise ValueError('Unexpected content prefix')
+        self.query_id = ba2int(cell_slice.read_next(64), signed=False)
+        self.amount = cell_slice.read_var_uint(16)
+        self.sender = MsgAddress.parse(cell_slice)
+        if cell_slice.read_next(1).any():  #TODO: read forward_payload
+            cell_slice.read_next_ref()
+        else:
+            cell_slice.read_next(cell_slice.bits_left())
+
+
+class JettonExcessesMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(32)
+        if prefix != hex2ba('d53276db'):
+            raise ValueError('Unexpected content prefix')
+        self.query_id = ba2int(cell_slice.read_next(64), signed=False)
+
+class JettonBurnMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(32)
+        if prefix != hex2ba('595f07bc'):
+            raise ValueError('Unexpected content prefix')
+        self.query_id = ba2int(cell_slice.read_next(64), signed=False)
+        self.amount = cell_slice.read_var_uint(16)
+        self.response_destination = MsgAddress.parse(cell_slice)
+        if cell_slice.read_next(1).any():
+            cell_slice.read_next_ref()  #TODO: read custom_payload
+
+class JettonInternalTransferMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(32)
+        if prefix != hex2ba('178d4519'):
+            raise ValueError('Unexpected content prefix')
+        self.query_id = ba2int(cell_slice.read_next(64), signed=False)
+        self.amount = cell_slice.read_var_uint(16)
+        self.from_ = MsgAddress.parse(cell_slice)
+        self.response_address = MsgAddress.parse(cell_slice)
+        self.forward_ton_amount = cell_slice.read_var_uint(16)
+        if cell_slice.read_next(1).any():  #TODO: read forward_payload
+            cell_slice.read_next_ref()
+        else:
+            cell_slice.read_next(cell_slice.bits_left())
+
+class JettonBurnNotificationMessage:
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(32)
+        if prefix != hex2ba('7bdd97de'):
+            raise ValueError('Unexpected content prefix')
+        self.query_id = ba2int(cell_slice.read_next(64), signed=False)
+        self.amount = cell_slice.read_var_uint(16)
+        self.sender = MsgAddress.parse(cell_slice)
+        self.response_destination = MsgAddress.parse(cell_slice)
+
+# Deprecated, use boc_to_object
+def parse_transaction(b64_tx_data: str) -> dict:
+    transaction_boc = codecs.decode(codecs.encode(b64_tx_data, 'utf-8'), 'base64')
+    cell = deserialize_boc(transaction_boc)
+    cell_slice = Slice(cell)
+    tx = Transaction(cell_slice)
+    cell_slice.raise_if_not_empty()
+
+    return json.loads(json.dumps(tx, default=lambda o: o.__dict__))
+
+# Deprecated, use boc_to_object
+def parse_tlb_object(b64_boc: str, tlb_type: type):
     boc = codecs.decode(codecs.encode(b64_boc, 'utf-8'), 'base64')
     cell = deserialize_boc(boc)
     cell_slice = Slice(cell)
@@ -535,3 +707,15 @@ def parse_tlb_object(b64_boc: str, tlb_type):
         object = tlb_type(cell_slice)
     cell_slice.raise_if_not_empty()
     return json.loads(json.dumps(object, default=lambda o: o.__dict__))
+
+def boc_to_object(b64_boc: str, tlb_type: type):
+    boc = codecs.decode(codecs.encode(b64_boc, 'utf-8'), 'base64')
+    cell = deserialize_boc(boc)
+    cell_slice = Slice(cell)
+    parse_cons = getattr(tlb_type, "parse", None)
+    if callable(parse_cons):
+        object = parse_cons(cell_slice)
+    else:
+        object = tlb_type(cell_slice)
+    cell_slice.raise_if_not_empty()
+    return object
