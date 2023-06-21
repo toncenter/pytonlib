@@ -12,29 +12,46 @@ def read_stack_cell(entry: list):
 def parse_jetton_master_data(stack: list):
     total_supply = read_stack_num(stack[0])
     mintable = bool(read_stack_num(stack[1]))
-    admin_address_int = parse_tlb_object(read_stack_cell(stack[2]), MsgAddressInt)
-    admin_address = detect_address(f"{admin_address_int['workchain_id']}:{admin_address_int['address']}")['bounceable']['b64url']
+    admin_address = parse_tlb_object(read_stack_cell(stack[2]), MsgAddress)
+    if admin_address['type'] == 'addr_std':
+        admin_address_friendly = detect_address(f"{admin_address['workchain_id']}:{admin_address['address']}")['bounceable']['b64url']
+    elif admin_address['type'] == 'addr_none':
+        admin_address_friendly = None
+    else:
+        raise NotImplementedError('Owner address not supported')
+
     jetton_content = parse_tlb_object(read_stack_cell(stack[3]), TokenData)
     jetton_wallet_code = read_stack_cell(stack[4])
     return {
         'total_supply': total_supply,
         'mintable': mintable,
-        'admin_address': admin_address,
+        'admin_address': admin_address_friendly,
         'jetton_content': jetton_content,
         'jetton_wallet_code': jetton_wallet_code
     }
 
 def parse_jetton_wallet_data(stack: list):
     balance = read_stack_num(stack[0])
-    owner = parse_tlb_object(read_stack_cell(stack[1]), MsgAddressInt)
-    owner = detect_address(f"{owner['workchain_id']}:{owner['address']}")['bounceable']['b64url']
-    jetton = parse_tlb_object(read_stack_cell(stack[2]), MsgAddressInt)
-    jetton = detect_address(f"{jetton['workchain_id']}:{jetton['address']}")['bounceable']['b64url']
+    owner = parse_tlb_object(read_stack_cell(stack[1]), MsgAddress)
+    if owner['type'] == 'addr_std':
+        owner_friendly = detect_address(f"{owner['workchain_id']}:{owner['address']}")['bounceable']['b64url']
+    elif owner['type'] == 'addr_none':
+        owner_friendly = None
+    else:
+        raise NotImplementedError('Owner address not supported')
+
+    jetton = parse_tlb_object(read_stack_cell(stack[2]), MsgAddress)
+    if jetton['type'] == 'addr_std':
+        jetton_friendly = detect_address(f"{owner['workchain_id']}:{owner['address']}")['bounceable']['b64url']
+    elif jetton['type'] == 'addr_none':
+        jetton_friendly = None
+    else:
+        raise NotImplementedError('Jetton address not supported')
     jetton_wallet_code = read_stack_cell(stack[3])
     return {
         'balance': balance,
-        'owner': owner,
-        'jetton': jetton,
+        'owner': owner_friendly,
+        'jetton': jetton_friendly,
         'jetton_wallet_code': jetton_wallet_code
     }
 
