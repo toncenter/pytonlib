@@ -42,7 +42,7 @@ def parse_jetton_wallet_data(stack: list):
 
     jetton = parse_tlb_object(read_stack_cell(stack[2]), MsgAddress)
     if jetton['type'] == 'addr_std':
-        jetton_friendly = detect_address(f"{owner['workchain_id']}:{owner['address']}")['bounceable']['b64url']
+        jetton_friendly = detect_address(f"{jetton['workchain_id']}:{jetton['address']}")['bounceable']['b64url']
     elif jetton['type'] == 'addr_none':
         jetton_friendly = None
     else:
