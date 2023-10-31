@@ -200,19 +200,29 @@ class TonlibClient:
         }
         return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
-    async def _load_contract(self, address, *args, **kwargs):
+    async def _load_contract(self, seqno, address, *args, **kwargs):
         # TODO: understand why this is not used
         account_address = prepare_address(address)
-        request = {
-            '@type': 'smc.load',
-            'account_address': {
-                'account_address': address
+        if seqno is not None:
+            wc, shard = -1, -9223372036854775808
+            fullblock = await self.lookup_block(wc, shard, seqno)
+        else:
+            fullblock = await self.get_masterchain_info()
+
+        withBlock = {
+            '@type': 'withBlock',
+            'id': fullblock,
+            'function': {
+                '@type': 'smc.load',
+                'account_address': {
+                    'account_address': address
+                }
             }
         }
-        result = await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
+        result = await self.tonlib_wrapper.execute(withBlock, timeout=self.tonlib_timeout)
         return result["id"]
 
-    async def raw_run_method(self, address, method, stack_data, output_layout=None, *args, **kwargs):
+    async def raw_run_method(self, seqno, address, method, stack_data, output_layout=None, *args, **kwargs):
         """
           For numeric data only
           TL Spec:
@@ -241,7 +251,7 @@ class TonlibClient:
             method = {'@type': 'smc.methodIdNumber', 'number': method}
         else:
             method = {'@type': 'smc.methodIdName', 'name': str(method)}
-        contract_id = await self._load_contract(address)
+        contract_id = await self._load_contract(seqno, address)
         request = {
             '@type': 'smc.runGetMethod',
             'id': contract_id,
