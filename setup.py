@@ -7,7 +7,7 @@ with open(join(dirname(__file__), "README.md"), "r") as f:
     long_description = f.read()
 
 
-version = os.environ.get('PYTONLIB_VERSION', 'dev')
+version = os.environ.get('PYTONLIB_VERSION', '0.0.0')
 
 
 setup(
@@ -18,7 +18,7 @@ setup(
     packages=find_packages('.', exclude=['tests']),
     install_requires=[
         'crc16>=0.1.1',
-        'tvm_valuetypes==0.0.10',
+        'tvm_valuetypes>=0.0.12',
         'requests>=2.27.1'
     ],
     package_data={
