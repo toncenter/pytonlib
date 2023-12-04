@@ -790,3 +790,14 @@ class TonlibClient:
             result['content'] = content
         result['contract_type'] = contract_type
         return result
+
+    async def get_libraries(self, library_list: list):
+        """
+        :param library_list: list of base64-encoded libraries hashes
+        """
+
+        request = {
+            '@type': 'smc.getLibraries',
+            'library_list': library_list
+        }
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
