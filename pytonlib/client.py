@@ -671,7 +671,7 @@ class TonlibClient:
 
         for shard_data in shards['shards']:
             shardchain = shard_data['shard']
-            for b in range(3):
+            for b in range(10):
                 block = await self.lookup_block(workchain, shardchain, lt=int(creation_lt) + b * 1000000)
                 txs = await self.get_block_transactions(workchain,
                                                         shardchain,
