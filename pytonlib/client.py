@@ -311,7 +311,7 @@ class TonlibClient:
 
     async def raw_create_and_send_query(self, destination, body, init_code=b'', init_data=b'', *args, **kwargs):
         query_info = await self._raw_create_query(destination, body, init_code, init_data)
-        return self._raw_send_query(query_info)
+        return await self._raw_send_query(query_info)
 
     async def raw_create_and_send_message(self, destination, body, initial_account_state=b'', *args, **kwargs):
         # Very close to raw_create_and_send_query, but StateInit should be generated outside
