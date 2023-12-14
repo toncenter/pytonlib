@@ -676,7 +676,7 @@ class TonlibClient:
                 txs = await self.get_block_transactions(workchain,
                                                         shardchain,
                                                         block["seqno"],
-                                                        count=40,
+                                                        count=500,
                                                         root_hash=block["root_hash"],
                                                         file_hash=block["file_hash"])
                 candidate = tuple()
@@ -690,7 +690,7 @@ class TonlibClient:
                     txses = await self.get_transactions(destination,
                                                         from_transaction_lt=candidate[1],
                                                         from_transaction_hash=b64str_to_hex(candidate[0]),
-                                                        limit=max(count, 10))
+                                                        limit=max(count, 40))
                     for tx in txses:
                         try:
                             in_msg = tx["in_msg"]
@@ -714,7 +714,7 @@ class TonlibClient:
             txses = await self.get_block_transactions(workchain,
                                                       shardchain,
                                                       block["seqno"],
-                                                      count=40,
+                                                      count=500,
                                                       root_hash=block["root_hash"],
                                                       file_hash=block["file_hash"])
             candidate = tuple()
