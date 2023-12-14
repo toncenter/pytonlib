@@ -4,7 +4,6 @@ import codecs
 import struct
 import logging
 import os
-from math import floor
 
 from pytonlib.tonlibjson import TonLib
 from pytonlib.utils.address import prepare_address, detect_address
