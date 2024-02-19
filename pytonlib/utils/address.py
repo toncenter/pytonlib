@@ -46,9 +46,9 @@ def account_forms(raw_form, test_only=False):
     workchain_tag = b'\xff' if workchain == -1 else workchain.to_bytes(1, "big")
     btag = bounceable_tag
     nbtag = non_bounceable_tag
-    # if test_only:
-    #  btag = (btag[0] | 0x80).to_bytes(1,'big')
-    #  nbtag = (nbtag[0] | 0x80).to_bytes(1,'big')
+    if test_only:
+        btag = (btag[0] | 0x80).to_bytes(1,'big')
+        nbtag = (nbtag[0] | 0x80).to_bytes(1,'big')
     preaddr_b = btag + workchain_tag + address
     preaddr_u = nbtag + workchain_tag + address
     b64_b = base64.b64encode(preaddr_b+calcCRC(preaddr_b)).decode('utf8')
