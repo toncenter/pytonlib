@@ -1,4 +1,4 @@
-from pytonlib.utils.tlb import parse_tlb_object, MsgAddress, MsgAddressInt, TokenData
+from pytonlib.utils.tlb import parse_tlb_object, MsgAddress, MsgAddressInt, TokenData, DNSRecordSet
 from pytonlib.utils.address import detect_address
 
 def read_stack_num(entry: list):
@@ -105,3 +105,6 @@ def parse_nft_item_data(stack: list):
 
 def parse_nft_content(stack: list):
     return parse_tlb_object(read_stack_cell(stack[0]), TokenData)
+
+def parse_dns_content(stack: list):
+    return parse_tlb_object(read_stack_cell(stack[0]), DNSRecordSet)

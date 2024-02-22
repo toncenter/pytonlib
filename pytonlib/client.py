@@ -9,7 +9,7 @@ from pytonlib.tonlibjson import TonLib
 from pytonlib.utils.address import prepare_address, detect_address
 from pytonlib.utils.common import b64str_to_hex, hex_to_b64str, hash_to_hex
 from pytonlib.utils.tokens import (parse_jetton_master_data, parse_jetton_wallet_data, 
-    parse_nft_collection_data, parse_nft_item_data, parse_nft_content)
+    parse_nft_collection_data, parse_nft_item_data, parse_nft_content, parse_dns_content)
 
 from tvm_valuetypes import serialize_tvm_stack, render_tvm_stack, deserialize_boc
 
@@ -311,7 +311,7 @@ class TonlibClient:
 
     async def raw_create_and_send_query(self, destination, body, init_code=b'', init_data=b'', *args, **kwargs):
         query_info = await self._raw_create_query(destination, body, init_code, init_data)
-        return self._raw_send_query(query_info)
+        return await self._raw_send_query(query_info)
 
     async def raw_create_and_send_message(self, destination, body, initial_account_state=b'', *args, **kwargs):
         # Very close to raw_create_and_send_query, but StateInit should be generated outside
@@ -773,9 +773,31 @@ class TonlibClient:
                 individual_content = result.pop('individual_content')
                 get_nft_content_request_stack = [['num', result['index']], ['tvm.Cell', individual_content]]
                 content_raw = await self.raw_run_method(prepare_address(result['collection_address']), 'get_nft_content', get_nft_content_request_stack)
-                content = parse_nft_content(content_raw['stack'])
+
+                # TON DNS collection
+                if prepare_address(result['collection_address']) == 'EQC3dNlesgVD8YbAazcauIrXBPfiVhMMr5YYk2in0Mtsz0Bz':
+                    content = parse_dns_content(content_raw['stack'])
+                    get_domain_res = await self.raw_run_method(address, 'get_domain', [])
+                    if get_domain_res['exit_code'] == 0:
+                        domain_bytes = get_domain_res['stack'][0][1]['bytes']
+                        domain_boc = codecs.decode(codecs.encode(domain_bytes, 'utf-8'), 'base64')
+                        domain_cell = deserialize_boc(domain_boc)
+                        content['domain'] = domain_cell.data.data.tobytes().decode('ascii') + '.ton'
+                else:
+                    content = parse_nft_content(content_raw['stack'])
             else:
                 content = result.pop('individual_content')
             result['content'] = content
         result['contract_type'] = contract_type
         return result
+
+    async def get_libraries(self, library_list: list):
+        """
+        :param library_list: list of base64-encoded libraries hashes
+        """
+
+        request = {
+            '@type': 'smc.getLibraries',
+            'library_list': library_list
+        }
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)

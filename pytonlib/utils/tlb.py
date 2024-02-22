@@ -445,7 +445,7 @@ class MsgAddressInt:
             self.address = ba2hex(cell_slice.read_next(addr_len))
 
 class TokenData:
-    attributes = ['uri', 'name', 'description', 'image', 'image_data', 'symbol', 'decimals']
+    attributes = ['uri', 'name', 'description', 'image', 'image_data', 'symbol', 'decimals', 'amount_style', 'render_type']
     attributes_hashes = {}
     for attr in attributes:
         attributes_hashes[sha256(attr.encode('utf-8')).hexdigest()] = attr
@@ -517,6 +517,68 @@ class TokenData:
         else:
             raise ValueError(f'Unexpected content data prefix: {prefix}')
         return data.tobytes().decode(encoding)
+
+
+class DNSRecord:
+    """
+    dns_smc_address#9fd3 smc_addr:MsgAddressInt flags:(## 8) { flags <= 1 }
+        cap_list:flags . 0?SmcCapList = DNSRecord;
+    dns_next_resolver#ba93 resolver:MsgAddressInt = DNSRecord;
+    dns_adnl_address#ad01 adnl_addr:bits256 flags:(## 8) { flags <= 1 }
+        proto_list:flags . 0?ProtoList = DNSRecord;
+    dns_storage_address#7473 bag_id:bits256 = DNSRecord;
+    """
+    def __init__(self, cell_slice):
+        prefix = ba2hex(cell_slice.read_next(16))
+        if prefix == '9fd3':
+            self.smc_addr = MsgAddressInt(cell_slice)
+            flags = ba2int(cell_slice.read_next(8))
+            if flags & 1:
+                #TODO: parse SmcCapList
+                cell_slice.read_next(cell_slice.bits_left())
+        elif prefix == 'ad01':
+            self.adnl_addr = ba2hex(cell_slice.read_next(256))
+            flags = ba2int(cell_slice.read_next(8))
+            if flags & 1:
+                #TODO: parse ProtoList
+                cell_slice.read_next(cell_slice.bits_left())
+        elif prefix == 'ba93':
+            self.resolver = MsgAddressInt(cell_slice)
+        elif prefix == '7473':
+            self.bag_id = ba2hex(cell_slice.read_next(256))
+        else:
+            raise ValueError(f'Unexpected content data prefix: {prefix}')
+
+class DNSRecordSet:
+    attributes = ['wallet', 'site', 'storage', 'dns_next_resolver']
+    attributes_hashes = {}
+    for attr in attributes:
+        attributes_hashes[sha256(attr.encode('utf-8')).hexdigest()] = attr
+
+    def __init__(self, cell_slice):
+        prefix = cell_slice.read_next(8)
+        assert prefix == bitarray('00000000'), 'dns data expected to be onchain'
+        if cell_slice.read_next(1).any():
+            child_slice = cell_slice.read_next_ref()
+            hashmap_cell = Cell()
+            hashmap_cell.data.data = child_slice._data
+            hashmap_cell.refs = child_slice._refs
+            hashmap = {}
+            parse_hashmap(hashmap_cell, 256, hashmap, bitarray())
+            self.data = self._parse_attributes(hashmap)
+        else:
+            self.data = {}
+                
+    def _parse_attributes(self, hashmap: dict):
+        res = {}
+        for attr_hash_bitstr, value_cell in hashmap.items():
+            attr_hash_hex = ba2hex(bitarray(attr_hash_bitstr))
+            attr_name = DNSRecordSet.attributes_hashes.get(attr_hash_hex)
+            if attr_name is None:
+                attr_name = attr_hash_hex
+            assert len(value_cell.refs) == 1, 'dict val should contain exact 1 ref'
+            res[attr_name] = DNSRecord(Slice(value_cell.refs[0]))
+        return res
 
 class TextCommentMessage:
     def __init__(self, cell_slice):
