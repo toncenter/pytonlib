@@ -17,7 +17,6 @@ setup(
     version=version,
     packages=find_packages('.', exclude=['tests']),
     install_requires=[
-        'crc16>=0.1.1',
         'tvm_valuetypes==0.0.10',
         'requests>=2.27.1'
     ],

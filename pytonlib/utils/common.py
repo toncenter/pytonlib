@@ -4,9 +4,9 @@ import functools
 import base64
 import asyncio
 import struct
-import crc16
 import codecs
 import logging
+from address import calcCRC
 
 from functools import wraps
 
@@ -80,9 +80,9 @@ def raw_to_userfriendly(address, tag=0x11):
 
     short_ints = [j * 256 + i for i, j in zip(*[iter(key)] * 2)]
     payload = struct.pack(f'Bb{"H"*16}', tag, workchain_id, *short_ints)
-    crc = crc16.crc16xmodem(payload)
+    crc = calcCRC(bytearray(payload))
 
-    e_key = payload + struct.pack('>H', crc)
+    e_key = payload + crc
     return base64.urlsafe_b64encode(e_key).decode("utf-8")
 
 
@@ -121,4 +121,3 @@ def retry_async(repeats=3, last_archval=False, raise_error=True):
         #end def
         return wrapper
     return decorator
-                
