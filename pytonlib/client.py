@@ -385,6 +385,9 @@ class TonlibClient:
         all_transactions = []
         current_lt, curret_hash = from_transaction_lt, from_transaction_hash
         while (not reach_lt) and (len(all_transactions) < limit):
+            if current_lt <= to_transaction_lt:
+                reach_lt = True
+                break
             raw_transactions = await self.raw_get_transactions(account, current_lt, curret_hash)
             transactions, next = raw_transactions['transactions'], raw_transactions.get("previous_transaction_id")
             for t in transactions:
