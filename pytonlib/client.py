@@ -162,7 +162,7 @@ class TonlibClient:
         }
         return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
-    async def raw_get_account_state(self, address: str, *args, **kwargs):
+    async def raw_get_account_state(self, address: str, seqno = None, *args, **kwargs):
         """
         TL Spec:
             raw.getAccountState account_address:accountAddress = raw.AccountState;
@@ -186,10 +186,36 @@ class TonlibClient:
                 'account_address': address
             }
         }
+        if seqno is not None:
+            wc, shard = -1, -9223372036854775808
+            block_id = await self.lookup_block(wc, shard, seqno)
+            request = {
+                '@type': 'withBlock',
+                'id': block_id,
+                'function' : request
+            }
+
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
+    
+    async def get_shard_account_cell(self, address: str, seqno = None, *args, **kwargs):
+        request = {
+            '@type': 'getShardAccountCell',
+            'account_address': {
+                'account_address': address
+            }
+        }
+        if seqno is not None:
+            wc, shard = -1, -9223372036854775808
+            block_id = await self.lookup_block(wc, shard, seqno)
+            request = {
+                '@type': 'withBlock',
+                'id': block_id,
+                'function' : request
+            }
 
         return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
-    async def generic_get_account_state(self, address: str, *args, **kwargs):
+    async def generic_get_account_state(self, address: str, seqno = None, *args, **kwargs):
         # TODO: understand why this is not used
         account_address = prepare_address(address)
         request = {
@@ -198,21 +224,38 @@ class TonlibClient:
                 'account_address': address
             }
         }
+        if seqno is not None:
+            wc, shard = -1, -9223372036854775808
+            block_id = await self.lookup_block(wc, shard, seqno)
+            request = {
+                '@type': 'withBlock',
+                'id': block_id,
+                'function' : request
+            }
+
         return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
-    async def _load_contract(self, address, *args, **kwargs):
+    async def _load_contract(self, address, seqno = None, *args, **kwargs):
         # TODO: understand why this is not used
-        account_address = prepare_address(address)
+        # account_address = prepare_address(address)
         request = {
             '@type': 'smc.load',
             'account_address': {
                 'account_address': address
             }
         }
+        if seqno is not None:
+            wc, shard = -1, -9223372036854775808
+            block_id = await self.lookup_block(wc, shard, seqno)
+            request = {
+                '@type': 'withBlock',
+                'id': block_id,
+                'function' : request
+            }
         result = await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
         return result["id"]
 
-    async def raw_run_method(self, address, method, stack_data, output_layout=None, *args, **kwargs):
+    async def raw_run_method(self, address, method, stack_data, seqno = None, *args, **kwargs):
         """
           For numeric data only
           TL Spec:
@@ -241,7 +284,7 @@ class TonlibClient:
             method = {'@type': 'smc.methodIdNumber', 'number': method}
         else:
             method = {'@type': 'smc.methodIdName', 'name': str(method)}
-        contract_id = await self._load_contract(address)
+        contract_id = await self._load_contract(address, seqno)
         request = {
             '@type': 'smc.runGetMethod',
             'id': contract_id,
@@ -251,6 +294,13 @@ class TonlibClient:
         r = await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
         if 'stack' in r:
             r['stack'] = serialize_tvm_stack(r['stack'])
+        request = {
+            '@type': 'smc.getRawFullAccountState',
+            'id': contract_id
+        }
+        raw_full_account_state = await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
+        r['block_id'] = raw_full_account_state['block_id']
+        r['last_transaction_id'] = raw_full_account_state['last_transaction_id']
         return r
 
     async def raw_send_message(self, serialized_boc, *args, **kwargs):
@@ -474,7 +524,7 @@ class TonlibClient:
         }
         return await self.tonlib_wrapper.execute(request)
 
-    async def get_shard_block_proof(self, workchain: int, shard: int, seqno: int, from_seqno=None, *args, **kwargs):
+    async def get_shard_block_proof(self, workchain: int, shard: int, seqno: int, from_seqno = None, *args, **kwargs):
         block_id = await self.lookup_block(workchain, shard, seqno)
         mode = 0
         if from_seqno is not None:
@@ -491,8 +541,16 @@ class TonlibClient:
             request['from'] = from_block_id
 
         return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
+    
+    async def get_out_msg_queue_sizes(self, *args, **kwargs):
+        request = {
+            '@type': 'blocks.getOutMsgQueueSizes',
+            'mode': 0
+        }
 
-    async def lookup_block(self, workchain, shard, seqno=None, lt=None, unixtime=None, *args, **kwargs):
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
+
+    async def lookup_block(self, workchain, shard, seqno = None, lt=None, unixtime=None, *args, **kwargs):
         assert (seqno is not None) or (lt is not None) or (unixtime is not None), "Seqno, LT or unixtime should be defined"
         mode = 0
         if seqno is not None:
@@ -515,7 +573,7 @@ class TonlibClient:
         }
         return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
-    async def get_shards(self, master_seqno=None, lt=None, unixtime=None, *args, **kwargs):
+    async def get_shards(self, master_seqno = None, lt=None, unixtime=None, *args, **kwargs):
         assert (master_seqno is not None) or (lt is not None) or (unixtime is not None), "Seqno, LT or unixtime should be defined"
         wc, shard = -1, -9223372036854775808
         fullblock = await self.lookup_block(wc, shard, master_seqno, lt, unixtime)
@@ -651,15 +709,38 @@ class TonlibClient:
         }
         return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
-    async def get_config_param(self, config_id: int, seqno: int, *args, **kwargs):
-        wc, shard = -1, -9223372036854775808
-        fullblock = await self.lookup_block(wc, shard, seqno)
+    async def get_config_param(self, config_id: int, seqno = None, *args, **kwargs):
         request = {
             '@type': 'getConfigParam',
-            'id': fullblock,
             'param': config_id,
             'mode': 0
         }
+
+        if seqno is not None:
+            wc, shard = -1, -9223372036854775808
+            block_id = await self.lookup_block(wc, shard, seqno)
+            request = {
+                '@type': 'withBlock',
+                'id': block_id,
+                'function' : request
+            }
+
+        return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
+
+    async def get_config_all(self, seqno = None, *args, **kwargs):
+        request = {
+            '@type': 'getConfigAll',
+            'mode': 0
+        }
+
+        if seqno is not None:
+            wc, shard = -1, -9223372036854775808
+            block_id = await self.lookup_block(wc, shard, seqno)
+            request = {
+                '@type': 'withBlock',
+                'id': block_id,
+                'function' : request
+            }
 
         return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
