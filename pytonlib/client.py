@@ -853,7 +853,7 @@ class TonlibClient:
             raise Exception("get_nft_address_by_index failed")
         return parse_nft_item_address_data(result['stack'])
 
-    async def get_token_data(self, address: str):
+    async def get_token_data(self, address: str, skip_verification=False):
         address = prepare_address(address)
 
         types_methods = {
@@ -880,14 +880,14 @@ class TonlibClient:
         elif contract_type == 'jetton_wallet':
             result = parse_jetton_wallet_data(get_method_result_stack)
 
-            if await self.get_jetton_wallet_address(result['owner'], result['jetton']) != address:
+            if not skip_verification and await self.get_jetton_wallet_address(result['owner'], result['jetton']) != address:
                 raise Exception("Verification with Jetton master failed")
         elif contract_type == 'nft_collection':
             result = parse_nft_collection_data(get_method_result_stack)
         elif contract_type == 'nft_item':
             result = parse_nft_item_data(get_method_result_stack)
             if result['collection_address'] is not None:
-                if await self.get_nft_item_address(result['collection_address'], result['index']) != address:
+                if not skip_verification and await self.get_nft_item_address(result['collection_address'], result['index']) != address:
                     raise Exception("Verification with NFT collection failed")
 
                 individual_content = result.pop('individual_content')
