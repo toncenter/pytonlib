@@ -35,16 +35,12 @@ def parse_jetton_wallet_data(stack: list):
     owner = parse_tlb_object(read_stack_cell(stack[1]), MsgAddress)
     if owner['type'] == 'addr_std':
         owner_friendly = detect_address(f"{owner['workchain_id']}:{owner['address']}")['bounceable']['b64url']
-    elif owner['type'] == 'addr_none':
-        owner_friendly = None
     else:
         raise NotImplementedError('Owner address not supported')
 
     jetton = parse_tlb_object(read_stack_cell(stack[2]), MsgAddress)
     if jetton['type'] == 'addr_std':
         jetton_friendly = detect_address(f"{jetton['workchain_id']}:{jetton['address']}")['bounceable']['b64url']
-    elif jetton['type'] == 'addr_none':
-        jetton_friendly = None
     else:
         raise NotImplementedError('Jetton address not supported')
     jetton_wallet_code = read_stack_cell(stack[3])
@@ -54,6 +50,20 @@ def parse_jetton_wallet_data(stack: list):
         'jetton': jetton_friendly,
         'jetton_wallet_code': jetton_wallet_code
     }
+
+def parse_single_address_stack(stack: list):
+    jetton_wallet_address = parse_tlb_object(read_stack_cell(stack[0]), MsgAddress)
+    if jetton_wallet_address['type'] == 'addr_std':
+        jetton_wallet_address_friendly = detect_address(f"{jetton_wallet_address['workchain_id']}:{jetton_wallet_address['address']}")['bounceable']['b64']
+    else:
+        raise NotImplementedError('addr_var jetton wallet address not supported')
+    return jetton_wallet_address_friendly
+
+def parse_jetton_wallet_address_data(stack: list):
+    return parse_single_address_stack(stack)
+
+def parse_nft_item_address_data(stack: list):
+    return parse_single_address_stack(stack)
 
 def parse_nft_collection_data(stack: list):
     next_item_index = read_stack_num(stack[0])
