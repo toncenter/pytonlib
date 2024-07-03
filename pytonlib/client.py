@@ -9,9 +9,12 @@ from pytonlib.tonlibjson import TonLib
 from pytonlib.utils.address import prepare_address, detect_address
 from pytonlib.utils.common import b64str_to_hex, hex_to_b64str, hash_to_hex
 from pytonlib.utils.tokens import (parse_jetton_master_data, parse_jetton_wallet_data, 
-    parse_nft_collection_data, parse_nft_item_data, parse_nft_content, parse_dns_content)
+    parse_nft_collection_data, parse_nft_item_data, parse_nft_content, parse_dns_content,
+    parse_jetton_wallet_address_data, parse_nft_item_address_data)
+from pytonlib.utils.tlb import MsgAddressInt
+from bitarray import bitarray
 
-from tvm_valuetypes import serialize_tvm_stack, render_tvm_stack, deserialize_boc
+from tvm_valuetypes import serialize_tvm_stack, render_tvm_stack, deserialize_boc, Cell
 
 from pathlib import Path
 from datetime import datetime
@@ -819,6 +822,36 @@ class TonlibClient:
                     except KeyError:
                         pass
         raise Exception("Tx not found")
+    
+
+    async def get_jetton_wallet_address(self, owner_address, jetton_address):
+        def address_to_MsgAddress_boc(workchain, address_hex):
+            workchain = int.to_bytes(workchain, 1, 'big')
+            address = bytes.fromhex(address_hex)
+            workchain_ba = bitarray()
+            workchain_ba.frombytes(workchain)
+            address_ba = bitarray()
+            address_ba.frombytes(address)
+            addr_ba = bitarray('100') + workchain_ba + address_ba
+            c = Cell()
+            c.data.data = addr_ba
+            boc_bytes = c.serialize_boc()
+            return codecs.decode(codecs.encode(boc_bytes, "base64"), 'utf-8').replace("\n", '')
+
+        owner_raw = detect_address(owner_address)['raw_form']
+        addr_boc = address_to_MsgAddress_boc(int(owner_raw.split(':')[0]), owner_raw.split(':')[1])
+        stack = [['tvm.Slice', addr_boc]]
+        result = await self.raw_run_method(jetton_address, 'get_wallet_address', stack)
+        if result['exit_code'] != 0 or len(result['stack']) != 1:
+            raise Exception("get_wallet_address failed")
+        return parse_jetton_wallet_address_data(result['stack'])
+    
+    async def get_nft_item_address(self, collection_address, item_index):
+        stack = [['int', item_index]]
+        result = await self.raw_run_method(collection_address, 'get_nft_address_by_index', stack)
+        if result['exit_code'] != 0 or len(result['stack']) != 1:
+            raise Exception("get_nft_address_by_index failed")
+        return parse_nft_item_address_data(result['stack'])
 
     async def get_token_data(self, address: str):
         address = prepare_address(address)
@@ -846,11 +879,17 @@ class TonlibClient:
             result = parse_jetton_master_data(get_method_result_stack)
         elif contract_type == 'jetton_wallet':
             result = parse_jetton_wallet_data(get_method_result_stack)
+
+            if await self.get_jetton_wallet_address(result['owner'], result['jetton']) != address:
+                raise Exception("Verification with Jetton master failed")
         elif contract_type == 'nft_collection':
             result = parse_nft_collection_data(get_method_result_stack)
         elif contract_type == 'nft_item':
             result = parse_nft_item_data(get_method_result_stack)
             if result['collection_address'] is not None:
+                if await self.get_nft_item_address(result['collection_address'], result['index']) != address:
+                    raise Exception("Verification with NFT collection failed")
+
                 individual_content = result.pop('individual_content')
                 get_nft_content_request_stack = [['num', result['index']], ['tvm.Cell', individual_content]]
                 content_raw = await self.raw_run_method(prepare_address(result['collection_address']), 'get_nft_content', get_nft_content_request_stack)
