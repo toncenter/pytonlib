@@ -10,7 +10,7 @@ class PyTonLibException(Exception):
         super().__init__(message or self.message)
 
 
-class SmartContractIsNotJettonOrNft(PyTonLibException):
+class SmartContractIsNotJettonOrNftException(PyTonLibException):
     """Raised when the smart contract is not a Jetton or NFT."""
 
     message = "Smart contract is not a Jetton or NFT"
