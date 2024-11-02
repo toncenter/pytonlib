@@ -5,6 +5,7 @@ import struct
 import logging
 import os
 
+from pytonlib.exceptions import SmartContractIsNotJettonOrNft
 from pytonlib.tonlibjson import TonLib
 from pytonlib.utils.address import prepare_address, detect_address
 from pytonlib.utils.common import b64str_to_hex, hex_to_b64str, hash_to_hex
@@ -872,7 +873,7 @@ class TonlibClient:
                 get_method_result_stack = get_method_results[i]['stack']
 
         if contract_type is None or get_method_result_stack is None:
-            raise Exception("Smart contract is not Jetton or NFT")
+            raise SmartContractIsNotJettonOrNft()
         
         result = None
         if contract_type == 'jetton_master':
