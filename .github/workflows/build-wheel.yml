@@ -60,7 +60,7 @@ jobs:
     needs: [ set_version, build_wheel ]
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: pytonlib-package
           path: dist
@@ -69,7 +69,7 @@ jobs:
         run: ls -la dist/
       - name: Create release tag
         if: ${{ github.repository == 'toncenter/pytonlib' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: actions/github-script@v3
+        uses: actions/github-script@v4
         with:
           github-token: ${{ github.token }}
           script: |
