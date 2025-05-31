@@ -752,11 +752,14 @@ class TonlibClient:
         dest = detect_address(destination)
         workchain = dest["raw_form"].split(":")[0]
         shards = await self.get_shards(lt=int(creation_lt))
+        next_shards = await self.get_shards(lt=int(creation_lt)+1000000)
+        shardchains = set([i['shard'] for i in shards['shards']] + [i['shard'] for i in next_shards['shards']]);
 
-        for shard_data in shards['shards']:
-            shardchain = shard_data['shard']
+        for shardchain in shardchains:
             for b in range(3):
                 block = await self.lookup_block(workchain, shardchain, lt=int(creation_lt) + b * 1000000)
+                if block.get('@type', 'error') == 'error':
+                    continue
                 txs = await self.get_block_transactions(workchain,
                                                         shardchain,
                                                         block["seqno"],
