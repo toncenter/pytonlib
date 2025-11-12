@@ -205,6 +205,8 @@ class TonLib:
                 result = None
                 try:
                     result = await asyncio.wait_for(self.loop.run_in_executor(None, receive_func), timeout=timeout + delta)
+                except asyncio.CancelledError:
+                    raise
                 except asyncio.TimeoutError:
                     logger.critical(f"Tonlib #{self.ls_index:03d} stuck (timeout error)")
                     self._state = "stuck"
