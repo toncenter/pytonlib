@@ -2,14 +2,13 @@ import json
 import platform
 import traceback
 
-import pkg_resources
+from importlib import resources
 import random
 import asyncio
 import time
 import functools
 import logging
 
-from copy import deepcopy
 from ctypes import *
 
 logger = logging.getLogger(__name__)
@@ -72,7 +71,9 @@ def get_tonlib_path():
         lib_name = f'tonlibjson.{machine}.dll'
     else:
         raise RuntimeError(f"Platform '{arch_name}({machine})' is not compatible yet")
-    return pkg_resources.resource_filename('pytonlib', f'distlib/{arch_name}/{lib_name}')
+    lib_path = resources.files('pytonlib').joinpath(f'distlib/{arch_name}/{lib_name}')
+    return str(lib_path)
+
 
 # class TonLib for single liteserver
 class TonLib:
