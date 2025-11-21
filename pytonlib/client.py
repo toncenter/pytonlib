@@ -755,12 +755,15 @@ class TonlibClient:
 
         for shard_data in shards['shards']:
             shardchain = shard_data['shard']
-            for b in range(3):
-                block = await self.lookup_block(workchain, shardchain, lt=int(creation_lt) + b * 1000000)
+            # Look for message in few subsequent blocks.
+            blocks_lt_distance = 1000000
+            creation_lt_rounded = int(int(creation_lt) / blocks_lt_distance * blocks_lt_distance)
+            for b in range(10):
+                block = await self.lookup_block(workchain, shardchain, lt=creation_lt_rounded + b * blocks_lt_distance)
                 txs = await self.get_block_transactions(workchain,
                                                         shardchain,
                                                         block["seqno"],
-                                                        count=40,
+                                                        count=500,
                                                         root_hash=block["root_hash"],
                                                         file_hash=block["file_hash"])
                 candidate = tuple()
@@ -798,7 +801,7 @@ class TonlibClient:
             txses = await self.get_block_transactions(workchain,
                                                       shardchain,
                                                       block["seqno"],
-                                                      count=40,
+                                                      count=500,
                                                       root_hash=block["root_hash"],
                                                       file_hash=block["file_hash"])
             candidate = tuple()
