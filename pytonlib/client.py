@@ -816,6 +816,7 @@ class TonlibClient:
                 for tx in txses:
                     try:
                         for msg in tx["out_msgs"]:
+                            if not msg["destination"]: continue
                             if detect_address(msg["destination"])["raw_form"] == dest["raw_form"]:
                                 if int(msg["created_lt"]) == int(creation_lt):
                                     return tx
