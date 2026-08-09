@@ -141,6 +141,10 @@ class TrComputePhase:
                 self.reason = 'cskip_bad_state'
             elif reason == bitarray('10'):
                 self.reason = 'cskip_no_gas'
+            elif reason == bitarray('11'):
+                cell_slice.read_next(1)
+                self.reason = 'cskip_suspended'
+
 
 class StorageUsedShort:
     """
