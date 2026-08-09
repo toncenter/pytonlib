@@ -751,7 +751,7 @@ class TonlibClient:
         src = detect_address(source)
         dest = detect_address(destination)
         workchain = dest["raw_form"].split(":")[0]
-        shards = await self.get_shards(lt=int(creation_lt))
+        shards = {'shards': [{'shard': -9223372036854775808}]} if workchain == '-1' else await self.get_shards(lt=int(creation_lt))
 
         for shard_data in shards['shards']:
             shardchain = shard_data['shard']
@@ -790,7 +790,7 @@ class TonlibClient:
         src = detect_address(source)
         dest = detect_address(destination)
         workchain = src["raw_form"].split(":")[0]
-        shards = await self.get_shards(lt=int(creation_lt))
+        shards = {'shards': [{'shard': -9223372036854775808}]} if workchain == '-1' else await self.get_shards(lt=int(creation_lt))
 
         for shard_data in shards['shards']:
             shardchain = shard_data['shard']
