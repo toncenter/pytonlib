@@ -413,15 +413,16 @@ class MsgAddressExt:
             self.type = 'addr_none'
         elif prefix == bitarray('01'):
             self.type = 'addr_extern'
-            cell_slice.read_next(cell_slice.bits_left()) #TODO: parse len and external_address
+            self.len = cell_slice.read_uint(9)
+            self.external_address = cell_slice.read_next(self.len)
 
 class MsgAddressInt:
     """
     anycast_info$_ depth:(#<= 30) { depth >= 1 }
         rewrite_pfx:(bits depth) = Anycast;
-    addr_std$10 anycast:(Maybe Anycast) 
+    addr_std$10 anycast:(Maybe Anycast)
         workchain_id:int8 address:bits256  = MsgAddressInt;
-    addr_var$11 anycast:(Maybe Anycast) addr_len:(## 9) 
+    addr_var$11 anycast:(Maybe Anycast) addr_len:(## 9)
         workchain_id:int32 address:(bits addr_len) = MsgAddressInt;
     """
     def __init__(self, cell_slice):
