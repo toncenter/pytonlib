@@ -100,7 +100,7 @@ def read_friendly_address(address):
 
 def detect_address(unknown_form):
     if is_hex(unknown_form):
-        return account_forms("-1:"+unknown_form)
+        return account_forms("0:"+unknown_form)
     elif (":" in unknown_form) and is_int(unknown_form.split(":")[0]) and is_hex(unknown_form.split(":")[1]):
         return account_forms(unknown_form)
     else:
