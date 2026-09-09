@@ -747,6 +747,30 @@ class TonlibClient:
 
         return await self.tonlib_wrapper.execute(request, timeout=self.tonlib_timeout)
 
+    async def _iter_block_transactions(self, workchain, shard, block):
+        after_lt = after_hash = None
+        seen_cursors = set()
+        while True:
+            page = await self.get_block_transactions(
+                workchain, shard, block["seqno"], count=40,
+                root_hash=block["root_hash"], file_hash=block["file_hash"],
+                after_lt=after_lt, after_hash=after_hash)
+            for tx in page["transactions"]:
+                yield tx
+            if not page["incomplete"]:
+                return
+            if not page["transactions"]:
+                raise RuntimeError("Incomplete block transaction page is empty")
+            last = page["transactions"][-1]
+            # Block pagination uses (account ID, LT); despite its name,
+            # after_hash expects the base64 account ID, not the transaction hash.
+            after_hash = hex_to_b64str(last["account"].split(":")[1])
+            after_lt = int(last["lt"])
+            cursor = (after_hash, after_lt)
+            if cursor in seen_cursors:
+                raise RuntimeError("Block transaction pagination did not advance")
+            seen_cursors.add(cursor)
+
     async def try_locate_tx_by_incoming_message(self, source, destination, creation_lt, *args, **kwargs):
         src = detect_address(source)
         dest = detect_address(destination)
@@ -757,15 +781,9 @@ class TonlibClient:
             shardchain = shard_data['shard']
             for b in range(3):
                 block = await self.lookup_block(workchain, shardchain, lt=int(creation_lt) + b * 1000000)
-                txs = await self.get_block_transactions(workchain,
-                                                        shardchain,
-                                                        block["seqno"],
-                                                        count=40,
-                                                        root_hash=block["root_hash"],
-                                                        file_hash=block["file_hash"])
                 candidate = tuple()
                 count = 0
-                for tx in txs["transactions"]:
+                async for tx in self._iter_block_transactions(workchain, shardchain, block):
                     if tx["account"] == dest["raw_form"]:
                         count += 1
                         if not candidate or candidate[1] < int(tx["lt"]):
@@ -795,15 +813,9 @@ class TonlibClient:
         for shard_data in shards['shards']:
             shardchain = shard_data['shard']
             block = await self.lookup_block(workchain, shardchain, lt=int(creation_lt))
-            txses = await self.get_block_transactions(workchain,
-                                                      shardchain,
-                                                      block["seqno"],
-                                                      count=40,
-                                                      root_hash=block["root_hash"],
-                                                      file_hash=block["file_hash"])
             candidate = tuple()
             count = 0
-            for tx in txses["transactions"]:
+            async for tx in self._iter_block_transactions(workchain, shardchain, block):
                 if tx["account"] == src["raw_form"]:
                     count += 1
                     if not candidate or candidate[1] < int(tx["lt"]):
