@@ -440,15 +440,22 @@ class TonlibClient:
         while (not reach_lt) and (len(all_transactions) < limit):
             raw_transactions = await self.raw_get_transactions(account, current_lt, curret_hash)
             transactions, next = raw_transactions['transactions'], raw_transactions.get("previous_transaction_id")
+            if not transactions:
+                break
             for t in transactions:
                 tlt = int(t['transaction_id']['lt'])
                 if tlt <= to_transaction_lt:
                     reach_lt = True
                     break
                 all_transactions.append(t)
+            if reach_lt:
+                break
             if next:
-                current_lt, curret_hash = int(
+                next_lt, next_hash = int(
                     next["lt"]), b64str_to_hex(next["hash"])
+                if next_lt == current_lt and next_hash == curret_hash:
+                    break
+                current_lt, curret_hash = next_lt, next_hash
             else:
                 break
             if current_lt == 0:
